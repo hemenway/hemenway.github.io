@@ -5,42 +5,90 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ryan Hemenway</title>
   <style>
+    :root {
+      --bg-color: #fdfdfd;
+      --text-color: #111;
+      --accent-color: #3a86ff;
+      --header-footer-bg: #eee;
+      --nav-bg: #f4f4f4;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-color: #121212;
+        --text-color: #eee;
+        --accent-color: #90cdf4;
+        --header-footer-bg: #1f1f1f;
+        --nav-bg: #1a1a1a;
+      }
+    }
+
     body {
       margin: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background-color: #fdfdfd;
-      color: #111;
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
       display: flex;
       min-height: 100vh;
       flex-direction: column;
+      transition: background-color 0.3s, color 0.3s;
     }
+
     header, footer {
-      background: #eee;
+      background: var(--header-footer-bg);
       padding: 1rem;
       text-align: center;
     }
+
     main {
       display: flex;
       flex: 1;
     }
+
     nav {
-      background: #f4f4f4;
+      background: var(--nav-bg);
       padding: 1rem;
       width: 200px;
       flex-shrink: 0;
     }
+
     nav a {
       display: block;
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.75rem;
       text-decoration: none;
-      color: #333;
+      color: var(--accent-color);
+      font-weight: 500;
     }
+
     section {
       flex: 1;
       padding: 2rem;
     }
+
     h1, h2 {
       margin-top: 0;
+    }
+
+    h2 {
+      font-size: 1.4rem;
+      border-bottom: 2px solid var(--accent-color);
+      padding-bottom: 0.25rem;
+      margin-top: 2rem;
+    }
+
+    ul {
+      padding-left: 1.2rem;
+    }
+
+    a {
+      color: var(--accent-color);
+    }
+
+    @font-face {
+      font-family: 'Inter';
+      font-style: normal;
+      font-weight: 400;
+      src: local('Inter'), url('https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK4lJ9kZkXBU.woff2') format('woff2');
     }
   </style>
 </head>
