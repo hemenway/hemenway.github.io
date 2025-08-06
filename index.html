@@ -1,73 +1,79 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ryan Hemenway</title>
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@3.4.4/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #fdfdfd;
+      color: #111;
+      display: flex;
+      min-height: 100vh;
+      flex-direction: column;
+    }
+    header, footer {
+      background: #eee;
+      padding: 1rem;
+      text-align: center;
+    }
+    main {
+      display: flex;
+      flex: 1;
+    }
+    nav {
+      background: #f4f4f4;
+      padding: 1rem;
+      width: 200px;
+      flex-shrink: 0;
+    }
+    nav a {
+      display: block;
+      margin-bottom: 0.5rem;
+      text-decoration: none;
+      color: #333;
+    }
+    section {
+      flex: 1;
+      padding: 2rem;
+    }
+    h1, h2 {
+      margin-top: 0;
+    }
+  </style>
 </head>
-<body class="bg-gray-50 text-gray-800 font-sans">
-
-  <!-- Header -->
-  <header class="bg-white shadow fixed top-0 w-full z-50">
-    <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-      <h1 class="text-xl font-bold">Ryan Hemenway</h1>
-      <nav class="space-x-6">
-        <a href="#about" class="text-gray-600 hover:text-black">About</a>
-        <a href="#portfolio" class="text-gray-600 hover:text-black">Projects</a>
-        <a href="#contact" class="text-gray-600 hover:text-black">Contact</a>
-      </nav>
-    </div>
+<body>
+  <header>
+    <h1>Ryan Hemenway</h1>
   </header>
 
-  <!-- Hero Section -->
-  <section class="pt-32 pb-20 text-center bg-gradient-to-b from-white to-gray-100">
-    <h2 class="text-4xl font-extrabold mb-4">Hi, I’m Ryan 👋</h2>
-    <p class="text-lg text-gray-700 max-w-xl mx-auto">I’m a pharmacy technician, pilot, and open-source hardware enthusiast based in Texas. I love aviation, travel, and helping others through community projects like Elevated Access.</p>
-  </section>
+  <main>
+    <nav>
+      <a href="#about">About</a>
+      <a href="#projects">Projects</a>
+      <a href="#contact">Contact</a>
+    </nav>
 
-  <!-- About -->
-  <section id="about" class="py-20 bg-white">
-    <div class="max-w-4xl mx-auto px-4 text-center">
-      <h3 class="text-2xl font-semibold mb-6">About Me</h3>
-      <p class="text-gray-700 leading-relaxed">With over a decade in healthcare and a passion for flying, I balance my work as a pharmacy tech with ongoing flight training toward becoming a volunteer pilot. I'm also deeply into tech, DIY electronics, and creating practical tools to make life better for others.</p>
-    </div>
-  </section>
+    <section>
+      <h2 id="about">About Me</h2>
+      <p>I’m a pharmacy technician, pilot, and open-source hardware enthusiast based in Texas. I love aviation, travel, and helping others through community projects like Elevated Access.</p>
 
-  <!-- Portfolio -->
-  <section id="portfolio" class="py-20 bg-gray-100">
-    <div class="max-w-6xl mx-auto px-4">
-      <h3 class="text-2xl font-semibold text-center mb-12">Projects</h3>
-      <div class="grid md:grid-cols-3 gap-8">
-        <div class="bg-white p-6 rounded-lg shadow">
-          <h4 class="text-lg font-bold mb-2">Elevated Access Points Program</h4>
-          <p class="text-gray-600">Built a program to collect and use donated airline points to fly missions for patients in need.</p>
-        </div>
-        <div class="bg-white p-6 rounded-lg shadow">
-          <h4 class="text-lg font-bold mb-2">Underwater Pool Scanning</h4>
-          <p class="text-gray-600">Developing a 3D scanning solution using photogrammetry and Gaussian splatting for pool volume measurement.</p>
-        </div>
-        <div class="bg-white p-6 rounded-lg shadow">
-          <h4 class="text-lg font-bold mb-2">Open-Source Avionics</h4>
-          <p class="text-gray-600">Experimenting with low-cost flight instruments and navigation tools for experimental aircraft.</p>
-        </div>
-      </div>
-    </div>
-  </section>
+      <h2 id="projects">Projects</h2>
+      <ul>
+        <li><strong>Elevated Access Points Program</strong>: Built a program to collect and use donated airline points to fly missions for patients in need.</li>
+        <li><strong>Underwater Pool Scanning</strong>: Developing a 3D scanning solution using photogrammetry and Gaussian splatting for pool volume measurement.</li>
+        <li><strong>Open-Source Avionics</strong>: Experimenting with low-cost flight instruments and navigation tools for experimental aircraft.</li>
+      </ul>
 
-  <!-- Contact -->
-  <section id="contact" class="py-20 bg-white">
-    <div class="max-w-2xl mx-auto px-4 text-center">
-      <h3 class="text-2xl font-semibold mb-6">Let’s Connect</h3>
-      <p class="text-gray-700 mb-6">Want to collaborate or just say hi? Reach out anytime.</p>
-      <a href="mailto:ryan@example.com" class="inline-block bg-blue-600 text-white px-6 py-3 rounded-lg shadow hover:bg-blue-700 transition">Email Me</a>
-    </div>
-  </section>
+      <h2 id="contact">Contact</h2>
+      <p>Want to collaborate or just say hi? <a href="mailto:ryan@example.com">Email me</a>.</p>
+    </section>
+  </main>
 
-  <!-- Footer -->
-  <footer class="bg-gray-100 py-6 text-center text-sm text-gray-500">
-    © 2025 Ryan Hemenway. All rights reserved.
+  <footer>
+    <p>© 2025 Ryan Hemenway</p>
   </footer>
-
 </body>
 </html>
