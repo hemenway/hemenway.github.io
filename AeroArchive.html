@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>COG Test Map (No TiTiler)</title>
+
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+    }
+    #map {
+      height: 100vh;
+      width: 100vw;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <!-- Leaflet JS -->
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+
+  <!-- GeoTIFF helpers -->
+  <script src="https://unpkg.com/georaster@1.6.1/dist/georaster.browser.min.js"></script>
+  <script src="https://unpkg.com/georaster-layer-for-leaflet@3.8.0/dist/georaster-layer-for-leaflet.min.js"></script>
+
+  <script>
+    // 1️⃣ Create base map
+    const map = L.map("map").setView([32.8, -97.0], 8); // rough center; we'll refit later
+
+    // 2️⃣ Basemap (optional, nice for context)
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap contributors"
+    }).addTo(map);
+
+    // 3️⃣ Your public COG URL in R2
+    const cogUrl = "https://pub-099103561dfc47f8935d399c2cfb9380.r2.dev/201609.tif";
+
+    // 4️⃣ Fetch the COG and render it
+    fetch(cogUrl)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error("Network response was not ok: " + response.statusText);
+        }
+        return response.arrayBuffer();
+      })
+      .then(arrayBuffer => {
+        return parseGeoraster(arrayBuffer);
+      })
+      .then(georaster => {
+        // 5️⃣ Create GeoRaster layer
+        const layer = new GeoRasterLayer({
+          georaster,
+          opacity: 0.9,
+          resolution: 256 // adjust if performance/quality needs tweaking
+        });
+
+        layer.addTo(map);
+
+        // 6️⃣ Fit map to raster bounds
+        map.fitBounds(layer.getBounds());
+      })
+      .catch(err => {
+        console.error("Error loading COG:", err);
+        alert("Error loading COG: " + err.message);
+      });
+  </script>
+</body>
+</html>
