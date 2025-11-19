@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>TiTiler + R2 COG Test</title>
+    <title>TiTiler + R2 COG Test (Auto Zoom to COG)</title>
 
     <!-- Leaflet CSS -->
     <link
@@ -35,21 +35,25 @@
     ></script>
 
     <script>
-      // Create map – center/zoom are just a starting guess, adjust as needed
-      const map = L.map("map").setView([32.9, -97.0], 11);
+      // Encoded COG URL (from your R2 bucket)
+      const encodedCogUrl =
+        "https%3A%2F%2Fpub-099103561dfc47f8935d399c2cfb9380.r2.dev%2F201309S_geo_COG.tif";
 
-      // Optional: OSM basemap underneath your COG
-      const osm = L.tileLayer(
-        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        {
-          maxZoom: 19,
-          attribution: "&copy; OpenStreetMap contributors",
-        }
-      ).addTo(map);
+      // Base TiTiler URL
+      const titilerBase = "https://titiler-production.up.railway.app";
 
-      // Your TiTiler COG tiles
+      // Create the map with some generic starting view
+      const map = L.map("map").setView([0, 0], 2);
+
+      // OSM basemap
+      const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 22,
+        attribution: "&copy; OpenStreetMap contributors",
+      }).addTo(map);
+
+      // COG tile layer via TiTiler (note WebMercatorQuad in the path)
       const cogLayer = L.tileLayer(
-        "https://titiler-production.up.railway.app/cog/tiles/{z}/{x}/{y}.png?url=https%3A%2F%2Fpub-099103561dfc47f8935d399c2cfb9380.r2.dev%2F201309S_geo_COG.tif",
+        `${titilerBase}/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png?url=${encodedCogUrl}`,
         {
           tileSize: 256,
           maxZoom: 22,
@@ -57,8 +61,34 @@
         }
       ).addTo(map);
 
-      // If you want to toggle layers:
+      // Layer control
       L.control.layers({ OSM: osm }, { "2013 Aerial": cogLayer }).addTo(map);
+
+      // Fetch COG info to auto-zoom to its bounds
+      fetch(`${titilerBase}/cog/info?url=${encodedCogUrl}`)
+        .then((res) => res.json())
+        .then((info) => {
+          console.log("COG info:", info);
+          if (info && info.bounds) {
+            // info.bounds = [minX, minY, maxX, maxY] in lon/lat
+            const [minX, minY, maxX, maxY] = info.bounds;
+            const bounds = [
+              [minY, minX], // [south, west]
+              [maxY, maxX], // [north, east]
+            ];
+            map.fitBounds(bounds);
+
+            // If TiTiler returns minzoom/maxzoom, you *could* use them:
+            if (typeof info.minzoom === "number" && typeof info.maxzoom === "number") {
+              cogLayer.setZIndex(10);
+              map.setMinZoom(info.minzoom);
+              map.setMaxZoom(info.maxzoom);
+            }
+          }
+        })
+        .catch((err) => {
+          console.error("Error fetching COG info:", err);
+        });
     </script>
   </body>
 </html>
