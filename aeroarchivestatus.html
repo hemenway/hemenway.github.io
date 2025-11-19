@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Historical Sectional Project Progress</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    /* === Global Theme (match these with your existing site) === */
+    :root {
+      --bg: #020617;
+      --bg-elevated: #020617;
+      --surface: #020617;
+      --surface-soft: #020617;
+      --accent: #38bdf8;
+      --accent-soft: rgba(56, 189, 248, 0.14);
+      --accent-strong: #0ea5e9;
+      --danger: #fb7185;
+      --warning: #f97316;
+      --success: #22c55e;
+
+      --text-main: #e5e7eb;
+      --text-muted: #9ca3af;
+      --border-subtle: rgba(148, 163, 184, 0.35);
+
+      --radius-lg: 18px;
+      --radius-md: 12px;
+      --radius-pill: 999px;
+      --shadow-soft: 0 20px 60px rgba(15, 23, 42, 0.9);
+
+      --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+        "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      font-family: var(--font-sans);
+      background:
+        radial-gradient(circle at 10% 0%, rgba(56, 189, 248, 0.12), transparent 55%),
+        radial-gradient(circle at 90% 100%, rgba(147, 51, 234, 0.20), transparent 55%),
+        #020617;
+      color: var(--text-main);
+      padding: 32px 16px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .page-shell {
+      width: 100%;
+      max-width: 1120px;
+      background: radial-gradient(circle at 0 0, rgba(30, 64, 175, 0.16), transparent 60%),
+        radial-gradient(circle at 100% 0, rgba(192, 38, 211, 0.18), transparent 55%),
+        radial-gradient(circle at 50% 100%, rgba(22, 163, 74, 0.20), transparent 55%),
+        rgba(15, 23, 42, 0.92);
+      border-radius: 32px;
+      box-shadow: var(--shadow-soft);
+      border: 1px solid rgba(148, 163, 184, 0.55);
+      padding: 28px 24px 32px;
+      backdrop-filter: blur(30px);
+      position: relative;
+      overflow: hidden;
+    }
+
+    @media (min-width: 900px) {
+      .page-shell {
+        padding: 36px 40px 40px;
+      }
+    }
+
+    .page-shell::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(120deg, rgba(56, 189, 248, 0.22), transparent 40%),
+        linear-gradient(-160deg, rgba(244, 114, 182, 0.18), transparent 40%);
+      mix-blend-mode: soft-light;
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    .page-inner {
+      position: relative;
+      z-index: 1;
+    }
+
+    /* === Header === */
+    .header {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      margin-bottom: 26px;
+    }
+
+    @media (min-width: 720px) {
+      .header {
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 32px;
+      }
+    }
+
+    .title-block h1 {
+      font-size: clamp(1.8rem, 3vw, 2.1rem);
+      letter-spacing: 0.02em;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .title-pill {
+      border-radius: var(--radius-pill);
+      padding: 3px 10px;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.13em;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      background: linear-gradient(120deg, rgba(15, 23, 42, 0.8), rgba(15, 23, 42, 0.45));
+      box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.9);
+      color: var(--text-muted);
+    }
+
+    .title-block p {
+      color: var(--text-muted);
+      font-size: 0.94rem;
+      max-width: 540px;
+      line-height: 1.45;
+    }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .badge {
+      font-size: 0.78rem;
+      border-radius: var(--radius-pill);
+      padding: 4px 9px;
+      border: 1px solid rgba(148, 163, 184, 0.55);
+      background: radial-gradient(circle at 0 0, rgba(56, 189, 248, 0.15), transparent 60%),
+        rgba(15, 23, 42, 0.92);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-muted);
+    }
+
+    .badge-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--accent);
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.8);
+    }
+
+    .meta-block {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    @media (min-width: 720px) {
+      .meta-block {
+        align-items: flex-end;
+        text-align: right;
+      }
+    }
+
+    .meta-line {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-pill {
+      border-radius: var(--radius-pill);
+      padding: 4px 10px;
+      border: 1px solid rgba(56, 189, 248, 0.7);
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), transparent);
+      color: var(--accent-strong);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+    }
+
+    /* === Layout Grid === */
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 2.1fr) minmax(0, 1.4fr);
+      gap: 22px;
+      margin-bottom: 22px;
+    }
+
+    @media (max-width: 900px) {
+      .grid {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    .panel {
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-subtle);
+      background:
+        radial-gradient(circle at 0 0, rgba(15, 23, 42, 0.5), transparent 55%),
+        radial-gradient(circle at 100% 100%, rgba(15, 23, 42, 0.65), transparent 55%),
+        rgba(15, 23, 42, 0.96);
+      box-shadow: 0 16px 48px rgba(15, 23, 42, 0.98);
+      padding: 16px 16px 18px;
+      backdrop-filter: blur(22px);
+      position: relative;
+      overflow: hidden;
+    }
+
+    @media (min-width: 900px) {
+      .panel {
+        padding: 16px 18px 22px;
+      }
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 14px;
+      gap: 10px;
+    }
+
+    .panel-title {
+      font-size: 0.88rem;
+      text-transform: uppercase;
+      letter-spacing: 0.2em;
+      color: var(--text-muted);
+    }
+
+    .panel-subtitle {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    /* === Progress Overview === */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    @media (max-width: 640px) {
+      .stats-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    .stat-card {
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(148, 163, 184, 0.55);
+      background: radial-gradient(circle at 0 0, rgba(56, 189, 248, 0.18), transparent 70%),
+        rgba(15, 23, 42, 0.96);
+      padding: 10px 10px 11px;
+      min-height: 70px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .stat-label {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .stat-value {
+      font-size: 1.3rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+
+    .stat-chip {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      padding: 3px 8px;
+      border-radius: var(--radius-pill);
+      border: 1px solid rgba(148, 163, 184, 0.8);
+      color: var(--text-muted);
+      align-self: flex-start;
+    }
+
+    .stat-chip--accent {
+      border-color: rgba(56, 189, 248, 0.8);
+      color: var(--accent-strong);
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.12), transparent);
+    }
+
+    .stat-chip--success {
+      border-color: rgba(34, 197, 94, 0.75);
+      color: var(--success);
+      background: linear-gradient(135deg, rgba(34, 197, 94, 0.12), transparent);
+    }
+
+    .progress-bar-wrap {
+      margin-top: 4px;
+    }
+
+    .progress-outer {
+      width: 100%;
+      height: 11px;
+      border-radius: var(--radius-pill);
+      border: 1px solid rgba(148, 163, 184, 0.55);
+      background:
+        linear-gradient(90deg, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 0.9));
+      overflow: hidden;
+      position: relative;
+    }
+
+    .progress-inner {
+      height: 100%;
+      border-radius: inherit;
+      background:
+        linear-gradient(90deg, #0ea5e9, #22c55e, #f97316);
+      box-shadow: 0 0 16px rgba(56, 189, 248, 0.9);
+      width: 0%;
+      transition: width 0.7s ease-out;
+    }
+
+    .progress-meta {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 6px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .progress-percentage {
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.04em;
+    }
+
+    /* === Milestones === */
+    .milestones-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 0.83rem;
+    }
+
+    .milestone {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 7px 9px;
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(148, 163, 184, 0.4);
+      background: radial-gradient(circle at 0 0, rgba(56, 189, 248, 0.12), transparent 60%),
+        rgba(15, 23, 42, 0.96);
+    }
+
+    .milestone-main {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .milestone-title {
+      font-size: 0.83rem;
+    }
+
+    .milestone-desc {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .milestone-status {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+      padding: 3px 8px;
+      border-radius: var(--radius-pill);
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      align-self: center;
+      white-space: nowrap;
+    }
+
+    .milestone-status--done {
+      border-color: rgba(34, 197, 94, 0.8);
+      color: var(--success);
+      background: linear-gradient(120deg, rgba(34, 197, 94, 0.18), transparent);
+    }
+
+    .milestone-status--active {
+      border-color: rgba(56, 189, 248, 0.8);
+      color: var(--accent-strong);
+      background: linear-gradient(120deg, rgba(56, 189, 248, 0.16), transparent);
+    }
+
+    .milestone-status--pending {
+      border-color: rgba(148, 163, 184, 0.8);
+      color: var(--text-muted);
+      background: linear-gradient(120deg, rgba(15, 23, 42, 0.95), transparent);
+    }
+
+    /* === Sectional Table === */
+    .table-panel {
+      margin-top: 4px;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-subtle);
+      background:
+        radial-gradient(circle at 0 0, rgba(56, 189, 248, 0.08), transparent 70%),
+        rgba(15, 23, 42, 0.98);
+      padding: 12px 10px;
+      overflow: auto;
+      max-height: 380px;
+    }
+
+    .sectional-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.78rem;
+      min-width: 540px;
+    }
+
+    .sectional-table th,
+    .sectional-table td {
+      text-align: left;
+      padding: 6px 8px;
+    }
+
+    .sectional-table th {
+      text-transform: uppercase;
+      letter-spacing: 0.17em;
+      font-size: 0.71rem;
+      color: var(--text-muted);
+      border-bottom: 1px solid rgba(148, 163, 184, 0.55);
+      position: sticky;
+      top: 0;
+      background: rgba(15, 23, 42, 0.98);
+      backdrop-filter: blur(16px);
+      z-index: 1;
+    }
+
+    .sectional-table tr:nth-child(even) td {
+      background: rgba(15, 23, 42, 0.82);
+    }
+
+    .sectional-table tr:nth-child(odd) td {
+      background: rgba(15, 23, 42, 0.96);
+    }
+
+    .sectional-table tr td:first-child,
+    .sectional-table tr th:first-child {
+      border-radius: 10px 0 0 10px;
+    }
+
+    .sectional-table tr td:last-child,
+    .sectional-table tr th:last-child {
+      border-radius: 0 10px 10px 0;
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: var(--radius-pill);
+      padding: 3px 9px;
+      border: 1px solid rgba(148, 163, 184, 0.8);
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.16em;
+    }
+
+    .status-pill--not-started {
+      color: var(--text-muted);
+      background: linear-gradient(135deg, rgba(15, 23, 42, 0.98), transparent);
+    }
+
+    .status-pill--researching {
+      color: var(--warning);
+      border-color: rgba(249, 115, 22, 0.8);
+      background: linear-gradient(135deg, rgba(249, 115, 22, 0.16), transparent);
+    }
+
+    .status-pill--acquired {
+      color: var(--accent-strong);
+      border-color: rgba(56, 189, 248, 0.9);
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), transparent);
+    }
+
+    .status-pill--annotated {
+      color: var(--success);
+      border-color: rgba(34, 197, 94, 0.9);
+      background: linear-gradient(135deg, rgba(34, 197, 94, 0.18), transparent);
+    }
+
+    .status-pill-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: currentColor;
+      box-shadow: 0 0 10px currentColor;
+    }
+
+    .notes-cell {
+      color: var(--text-muted);
+      max-width: 260px;
+    }
+
+    /* === Legend & Footer === */
+    .legend-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+      font-size: 0.73rem;
+      color: var(--text-muted);
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 8px;
+      border-radius: var(--radius-pill);
+      border: 1px dashed rgba(148, 163, 184, 0.6);
+      background: rgba(15, 23, 42, 0.96);
+    }
+
+    .legend-swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+    }
+
+    .swatch-researching {
+      background: var(--warning);
+      box-shadow: 0 0 10px rgba(249, 115, 22, 0.8);
+    }
+
+    .swatch-acquired {
+      background: var(--accent-strong);
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.9);
+    }
+
+    .swatch-annotated {
+      background: var(--success);
+      box-shadow: 0 0 10px rgba(34, 197, 94, 0.9);
+    }
+
+    .footer-note {
+      margin-top: 18px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .footer-note span {
+      opacity: 0.9;
+    }
+
+    .footer-note strong {
+      font-weight: 500;
+      color: var(--accent-strong);
+    }
+  </style>
+</head>
+<body>
+  <main class="page-shell">
+    <div class="page-inner">
+      <!-- Header -->
+      <header class="header">
+        <div class="title-block">
+          <div class="title-pill">Project Tracker</div>
+          <h1>
+            Historical Sectional Project
+          </h1>
+          <p>
+            A running log of each historical sectional I’m collecting, restoring, and annotating —
+            plus a quick overview of how far along the project is at any moment.
+          </p>
+
+          <div class="badge-row">
+            <div class="badge">
+              <span class="badge-dot"></span>
+              Active aviation history project
+            </div>
+            <div class="badge">
+              <span class="badge-dot"></span>
+              Focus: Sectional charts & regional coverage
+            </div>
+          </div>
+        </div>
+
+        <div class="meta-block">
+          <div class="meta-line">
+            <span>Last updated:</span>
+            <span><strong id="last-updated">Edit this manually</strong></span>
+          </div>
+          <div class="meta-line">
+            <span>Total sectionals tracked:</span>
+            <span id="meta-total">0</span>
+          </div>
+          <div class="meta-line">
+            <span>Completed:</span>
+            <span id="meta-complete">0</span>
+          </div>
+          <div class="meta-line">
+            <span class="status-pill">In Progress</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- Main content grid -->
+      <section class="grid">
+        <!-- Left: Progress Overview & Milestones -->
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Progress Overview</div>
+              <div class="panel-subtitle">
+                Auto-calculated from sectional statuses below.
+              </div>
+            </div>
+          </div>
+
+          <div class="stats-row">
+            <article class="stat-card">
+              <div class="stat-label">Total Sectionals</div>
+              <div class="stat-value" id="total-sectionals">0</div>
+              <div class="stat-chip">Scope of the project</div>
+            </article>
+
+            <article class="stat-card">
+              <div class="stat-label">Completed (Annotated)</div>
+              <div class="stat-value" id="completed-sectionals">0</div>
+              <div class="stat-chip stat-chip--success">Ready for “show & tell”</div>
+            </article>
+
+            <article class="stat-card">
+              <div class="stat-label">In Progress</div>
+              <div class="stat-value" id="in-progress-sectionals">0</div>
+              <div class="stat-chip stat-chip--accent">Currently on the bench</div>
+            </article>
+          </div>
+
+          <div class="progress-bar-wrap">
+            <div class="progress-outer">
+              <div class="progress-inner" id="overall-progress-bar"></div>
+            </div>
+            <div class="progress-meta">
+              <span>Overall completion</span>
+              <span class="progress-percentage" id="overall-progress-label">0%</span>
+            </div>
+          </div>
+
+          <div style="margin-top: 18px;">
+            <div class="panel-header" style="margin-bottom: 10px;">
+              <div class="panel-title">Key Milestones</div>
+            </div>
+
+            <div class="milestones-list">
+              <!-- Mark these as done/active/pending and edit text as you go -->
+              <article class="milestone">
+                <div class="milestone-main">
+                  <div class="milestone-title">Define project scope</div>
+                  <div class="milestone-desc">
+                    Decide which eras, regions, and editions you want in the final collection.
+                  </div>
+                </div>
+                <div class="milestone-status milestone-status--done">Complete</div>
+              </article>
+
+              <article class="milestone">
+                <div class="milestone-main">
+                  <div class="milestone-title">Master sectional list created</div>
+                  <div class="milestone-desc">
+                    Final list of target charts with approximate publication years and priorities.
+                  </div>
+                </div>
+                <div class="milestone-status milestone-status--active">In Progress</div>
+              </article>
+
+              <article class="milestone">
+                <div class="milestone-main">
+                  <div class="milestone-title">Acquisition channels lined up</div>
+                  <div class="milestone-desc">
+                    Identify sources (archives, collectors, online marketplaces, museums).
+                  </div>
+                </div>
+                <div class="milestone-status milestone-status--pending">Queued</div>
+              </article>
+
+              <article class="milestone">
+                <div class="milestone-main">
+                  <div class="milestone-title">Digitization & restoration workflow</div>
+                  <div class="milestone-desc">
+                    Decide on scanning, color-correction, and file naming standards.
+                  </div>
+                </div>
+                <div class="milestone-status milestone-status--pending">Queued</div>
+              </article>
+
+              <article class="milestone">
+                <div class="milestone-main">
+                  <div class="milestone-title">Annotation & notes template finalized</div>
+                  <div class="milestone-desc">
+                    Standard way to capture notes on historical routes, landmarks, and changes.
+                  </div>
+                </div>
+                <div class="milestone-status milestone-status--pending">Queued</div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <!-- Right: Sectionals Table -->
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Sectional Inventory</div>
+              <div class="panel-subtitle">
+                Each row is a single chart; update the status & notes as you go.
+              </div>
+            </div>
+          </div>
+
+          <div class="table-panel">
+            <table class="sectional-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Sectional</th>
+                  <th>Era / Year</th>
+                  <th>Status</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!--
+                  Use data-status:
+                    - not-started
+                    - researching
+                    - acquired
+                    - annotated (counts as "complete")
+                -->
+
+                <!-- Example rows — edit / duplicate / remove as needed -->
+                <tr data-sectional data-status="annotated">
+                  <td>1</td>
+                  <td>Dallas–Fort Worth</td>
+                  <td>1970s</td>
+                  <td>
+                    <span class="status-pill status-pill--annotated">
+                      <span class="status-pill-dot"></span>
+                      Annotated
+                    </span>
+                  </td>
+                  <td class="notes-cell">
+                    Cataloged with notes on Love Field, early DFW developments, and legacy airstrips.
+                  </td>
+                </tr>
+
+                <tr data-sectional data-status="acquired">
+                  <td>2</td>
+                  <td>Houston</td>
+                  <td>1965</td>
+                  <td>
+                    <span class="status-pill status-pill--acquired">
+                      <span class="status-pill-dot"></span>
+                      Acquired
+                    </span>
+                  </td>
+                  <td class="notes-cell">
+                    Needs full scan and color correction. Some edge wear, but labels are sharp.
+                  </td>
+                </tr>
+
+                <tr data-sectional data-status="researching">
+                  <td>3</td>
+                  <td>San Antonio</td>
+                  <td>1950s</td>
+                  <td>
+                    <span class="status-pill status-pill--researching">
+                      <span class="status-pill-dot"></span>
+                      Researching
+                    </span>
+                  </td>
+                  <td class="notes-cell">
+                    Watching a couple of auctions; also checking museum and university archives.
+                  </td>
+                </tr>
+
+                <tr data-sectional data-status="not-started">
+                  <td>4</td>
+                  <td>New Orleans</td>
+                  <td>1950s</td>
+                  <td>
+                    <span class="status-pill status-pill--not-started">
+                      <span class="status-pill-dot"></span>
+                      Not Started
+                    </span>
+                  </td>
+                  <td class="notes-cell">
+                    On the “nice to have” list for Gulf Coast coverage.
+                  </td>
+                </tr>
+
+                <!-- Add more rows here as your project grows -->
+              </tbody>
+            </table>
+          </div>
+
+          <div class="legend-row">
+            <div class="legend-item">
+              <span class="legend-swatch swatch-researching"></span>
+              <span>Researching — hunting for good copies, sources, or prices.</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-swatch swatch-acquired"></span>
+              <span>Acquired — chart is physically/digitally in your collection.</span>
+            </div>
+            <div class="legend-item">
+              <span class="legend-swatch swatch-annotated"></span>
+              <span>Annotated — scanned, cleaned up, and fully noted.</span>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <!-- Footer -->
+      <footer class="footer-note">
+        <span>
+          <strong>How to update:</strong>
+          just change the <code>data-status</code> attribute & status pill class on each row.
+        </span>
+        <span>
+          Overall completion = annotated ÷ total (everything else counts as “in progress”).
+        </span>
+      </footer>
+    </div>
+  </main>
+
+  <script>
+    // Simple auto-calculation of progress based on table rows
+    (function () {
+      const rows = document.querySelectorAll("tr[data-sectional]");
+      const total = rows.length;
+      let annotated = 0;
+      let inProgress = 0;
+
+      rows.forEach((row) => {
+        const status = row.getAttribute("data-status");
+        if (status === "annotated") {
+          annotated++;
+        } else if (status === "acquired" || status === "researching") {
+          inProgress++;
+        }
+      });
+
+      const totalEl = document.getElementById("total-sectionals");
+      const completedEl = document.getElementById("completed-sectionals");
+      const inProgressEl = document.getElementById("in-progress-sectionals");
+      const metaTotalEl = document.getElementById("meta-total");
+      const metaCompleteEl = document.getElementById("meta-complete");
+      const bar = document.getElementById("overall-progress-bar");
+      const label = document.getElementById("overall-progress-label");
+
+      if (totalEl) totalEl.textContent = total;
+      if (completedEl) completedEl.textContent = annotated;
+      if (inProgressEl) inProgressEl.textContent = inProgress;
+      if (metaTotalEl) metaTotalEl.textContent = total;
+      if (metaCompleteEl) metaCompleteEl.textContent = annotated;
+
+      const percentage = total > 0 ? Math.round((annotated / total) * 100) : 0;
+      if (bar) bar.style.width = percentage + "%";
+      if (label) label.textContent = percentage + "%";
+    })();
+  </script>
+</body>
+</html>
