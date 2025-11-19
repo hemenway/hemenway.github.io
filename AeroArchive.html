@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>TiTiler + R2 COG Test (Auto Zoom to COG)</title>
+    <title>Local TiTiler + Local COG Test</title>
 
     <!-- Leaflet CSS -->
     <link
@@ -35,15 +35,16 @@
     ></script>
 
     <script>
-      // Encoded COG URL (from your R2 bucket)
-      const encodedCogUrl =
-        "https%3A%2F%2Fpub-099103561dfc47f8935d399c2cfb9380.r2.dev%2F201309S_geo_COG.tif";
+      // Encoded container path to your local COG
+      // Host path: /Users/ryanhemenway/Desktop/Sectional Project/3.COGs/201309S_geo_COG.tif
+      // Container path (from docker -v): /cogs/201309S_geo_COG.tif
+      const encodedCogUrl = "%2Fcogs%2F201309S_geo_COG.tif";
 
-      // Base TiTiler URL
-      const titilerBase = "https://titiler-production.up.railway.app";
+      // Local TiTiler base URL
+      const titilerBase = "http://localhost:8000";
 
-      // Create the map with some generic starting view
-      const map = L.map("map").setView([0, 0], 2);
+      // Create map (we'll zoom once we have bounds)
+      const map = L.map("map");
 
       // OSM basemap
       const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -51,7 +52,7 @@
         attribution: "&copy; OpenStreetMap contributors",
       }).addTo(map);
 
-      // COG tile layer via TiTiler (note WebMercatorQuad in the path)
+      // COG tile layer from local TiTiler
       const cogLayer = L.tileLayer(
         `${titilerBase}/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png?url=${encodedCogUrl}`,
         {
@@ -64,30 +65,31 @@
       // Layer control
       L.control.layers({ OSM: osm }, { "2013 Aerial": cogLayer }).addTo(map);
 
-      // Fetch COG info to auto-zoom to its bounds
+      // Fetch COG info and zoom to its bounds
       fetch(`${titilerBase}/cog/info?url=${encodedCogUrl}`)
         .then((res) => res.json())
         .then((info) => {
           console.log("COG info:", info);
           if (info && info.bounds) {
-            // info.bounds = [minX, minY, maxX, maxY] in lon/lat
-            const [minX, minY, maxX, maxY] = info.bounds;
+            const [minX, minY, maxX, maxY] = info.bounds; // [west, south, east, north]
             const bounds = [
-              [minY, minX], // [south, west]
-              [maxY, maxX], // [north, east]
+              [minY, minX],
+              [maxY, maxX],
             ];
             map.fitBounds(bounds);
 
-            // If TiTiler returns minzoom/maxzoom, you *could* use them:
             if (typeof info.minzoom === "number" && typeof info.maxzoom === "number") {
-              cogLayer.setZIndex(10);
               map.setMinZoom(info.minzoom);
               map.setMaxZoom(info.maxzoom);
             }
+          } else {
+            // Fallback if no bounds
+            map.setView([0, 0], 2);
           }
         })
         .catch((err) => {
           console.error("Error fetching COG info:", err);
+          map.setView([0, 0], 2);
         });
     </script>
   </body>
