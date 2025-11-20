@@ -4,14 +4,16 @@
   <meta charset="utf-8" />
   <title>DFW Sectionals – TimeDimension</title>
 
+  <!-- Leaflet core -->
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
   />
-  <!-- TimeDimension CSS (working URL) -->
+
+  <!-- TimeDimension CSS -->
   <link
     rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/leaflet-timedimension@1.1.0/dist/leaflet.timedimension.control.min.css"
+    href="https://cdn.jsdelivr.net/npm/leaflet-timedimension@1.1.1/dist/leaflet.timedimension.control.css"
   />
 
   <style>
@@ -23,11 +25,17 @@
 
 <div id="map"></div>
 
+<!-- Leaflet -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<!-- TimeDimension JS (working URL) -->
-<script src="https://cdn.jsdelivr.net/npm/leaflet-timedimension@1.1.0/dist/leaflet.timedimension.min.js"></script>
+
+<!-- TimeDimension deps -->
+<script src="https://cdn.jsdelivr.net/npm/iso8601-js-period@0.2.1/iso8601.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet-timedimension@1.1.1/dist/leaflet.timedimension.min.js"></script>
 
 <script>
+// Quick sanity check
+console.log("L.TimeDimension is", typeof L.TimeDimension);
+
 // ------------------------------
 // TiTiler base URL
 // ------------------------------
@@ -42,7 +50,7 @@ const editions = [
   { filename: "201209N_geo_COG.tif", label: "2012 N" },
   { filename: "201209S_geo_COG.tif", label: "2012 S" },
   { filename: "201309N_geo_COG.tif", label: "2013 N" },
-  { filename: "201309S_geo_COG.tif", label: "2013 S" }, // assuming .tif not .tit
+  { filename: "201309S_geo_COG.tif", label: "2013 S" }, // .tif, not .tit
   { filename: "201403_geo_COG.tif", label: "2014" },
   { filename: "201503_geo_COG.tif", label: "2015" },
   { filename: "201603_geo_COG.tif", label: "2016-03" },
@@ -94,13 +102,12 @@ const dfwCenter = dfwBounds.getCenter();
 const map = L.map("map", {
   worldCopyJump: false,
   timeDimension: timeDimension,
-  timeDimensionControl: false // we'll add control manually
+  timeDimensionControl: false
 });
 map.setView(dfwCenter, 11);
 
 // ------------------------------
-// TimeDimension control (slider, play, loop)
-// We'll override its display function to show only the year.
+// TimeDimension control
 // ------------------------------
 const timeDimensionControl = new L.Control.TimeDimension({
   position: "bottomleft",
@@ -112,17 +119,10 @@ const timeDimensionControl = new L.Control.TimeDimension({
 });
 timeDimensionControl.addTo(map);
 
-// Override display function to show only the year
+// Show only the year in the display
 timeDimensionControl._getDisplayDateFormat = function(date) {
-  // TimeDimension newer versions use this; fall back just in case
   return date.getUTCFullYear().toString();
 };
-if (!timeDimensionControl._getDisplayDate) {
-  // safety: some builds use _getDisplayDate
-  timeDimensionControl._getDisplayDate = function(date) {
-    return date.getUTCFullYear().toString();
-  };
-}
 
 // ------------------------------
 // OSM basemap
@@ -156,7 +156,7 @@ const cogLayers = editions.map(e => buildCogLayer(e.filename));
 cogLayers[0].addTo(map);
 
 // ------------------------------
-// Time change handler: show only the COG matching the current time
+// Time change handler
 // ------------------------------
 timeDimension.on("timechange", function(e) {
   const currentTime = e.time;
@@ -176,7 +176,7 @@ timeDimension.on("timechange", function(e) {
     }
   });
 
-  console.log("Showing edition:", editions[idx].filename, "time:", new Date(currentTime).toISOString());
+  console.log("Showing edition:", editions[idx].filename);
 });
 
 // ------------------------------
