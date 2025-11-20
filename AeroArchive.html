@@ -1,41 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <title>DFW Sectionals – TimeDimension</title>
-
-  <!-- Leaflet core -->
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  />
-
-  <!-- TimeDimension CSS -->
-  <link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/leaflet-timedimension@1.1.1/dist/leaflet.timedimension.control.css"
-  />
-
-  <style>
-    html, body { height: 100%; margin: 0; }
-    #map { height: 100%; }
-  </style>
-</head>
-<body>
-
-<div id="map"></div>
-
-<!-- Leaflet -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
-<!-- TimeDimension deps -->
-<script src="https://cdn.jsdelivr.net/npm/iso8601-js-period@0.2.1/iso8601.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/leaflet-timedimension@1.1.1/dist/leaflet.timedimension.min.js"></script>
-
 <script>
-// Quick sanity check
-console.log("L.TimeDimension is", typeof L.TimeDimension);
-
 // ------------------------------
 // TiTiler base URL
 // ------------------------------
@@ -50,7 +13,7 @@ const editions = [
   { filename: "201209N_geo_COG.tif", label: "2012 N" },
   { filename: "201209S_geo_COG.tif", label: "2012 S" },
   { filename: "201309N_geo_COG.tif", label: "2013 N" },
-  { filename: "201309S_geo_COG.tif", label: "2013 S" }, // .tif, not .tit
+  { filename: "201309S_geo_COG.tif", label: "2013 S" }, // make sure this really is .tif
   { filename: "201403_geo_COG.tif", label: "2014" },
   { filename: "201503_geo_COG.tif", label: "2015" },
   { filename: "201603_geo_COG.tif", label: "2016-03" },
@@ -87,8 +50,10 @@ const timeDimension = new L.TimeDimension({
   currentTime: timeMs[0]
 });
 
+console.log("L.TimeDimension is", typeof L.TimeDimension);
+
 // ------------------------------
-// Rough DFW bounding box and center
+// Rough DFW bounding box and center (for initial view)
 // ------------------------------
 const dfwBounds = L.latLngBounds(
   [32.3, -98.0],  // SW
@@ -107,7 +72,7 @@ const map = L.map("map", {
 map.setView(dfwCenter, 11);
 
 // ------------------------------
-// TimeDimension control
+// TimeDimension control (year-only display)
 // ------------------------------
 const timeDimensionControl = new L.Control.TimeDimension({
   position: "bottomleft",
@@ -119,7 +84,6 @@ const timeDimensionControl = new L.Control.TimeDimension({
 });
 timeDimensionControl.addTo(map);
 
-// Show only the year in the display
 timeDimensionControl._getDisplayDateFormat = function(date) {
   return date.getUTCFullYear().toString();
 };
@@ -136,47 +100,36 @@ const osm = L.tileLayer(
 ).addTo(map);
 
 // ------------------------------
-// Create COG tile layers (one per edition)
+// SINGLE COG tile layer – we just swap URL on time change
 // ------------------------------
-function buildCogLayer(filename) {
-  const encodedUrl = buildEncodedCogUrl(filename);
-  return L.tileLayer(
-    `${titiler}/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png?url=${encodedUrl}`,
-    {
-      tileSize: 256,
-      maxZoom: 22,
-      noWrap: true
-    }
-  );
+let currentIndex = 0;
+let currentEncodedUrl = buildEncodedCogUrl(editions[currentIndex].filename);
+
+function makeCogUrl(encoded) {
+  return `${titiler}/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png?url=${encoded}`;
 }
 
-const cogLayers = editions.map(e => buildCogLayer(e.filename));
-
-// Start with the first edition visible
-cogLayers[0].addTo(map);
+const cogLayer = L.tileLayer(makeCogUrl(currentEncodedUrl), {
+  tileSize: 256,
+  maxZoom: 22,
+  noWrap: true,
+  keepBuffer: 1,       // request fewer offscreen tiles
+  updateWhenIdle: true // don't spam while panning
+}).addTo(map);
 
 // ------------------------------
-// Time change handler
+// Time change handler – swap COG URL
 // ------------------------------
 timeDimension.on("timechange", function(e) {
   const currentTime = e.time;
   const idx = timeMs.indexOf(currentTime);
+  if (idx === -1 || idx === currentIndex) return;
 
-  if (idx === -1) return;
+  currentIndex = idx;
+  currentEncodedUrl = buildEncodedCogUrl(editions[currentIndex].filename);
 
-  cogLayers.forEach((layer, i) => {
-    if (i === idx) {
-      if (!map.hasLayer(layer)) {
-        layer.addTo(map);
-      }
-    } else {
-      if (map.hasLayer(layer)) {
-        map.removeLayer(layer);
-      }
-    }
-  });
-
-  console.log("Showing edition:", editions[idx].filename);
+  console.log("Switching to edition:", editions[currentIndex].filename);
+  cogLayer.setUrl(makeCogUrl(currentEncodedUrl));
 });
 
 // ------------------------------
@@ -200,5 +153,3 @@ fetch(`${titiler}/cog/info?url=${firstEncoded}`)
   })
   .catch(err => console.error("cog/info error:", err));
 </script>
-</body>
-</html>
