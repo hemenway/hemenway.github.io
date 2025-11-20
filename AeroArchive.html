@@ -4,18 +4,27 @@
   <meta charset="utf-8" />
   <title>DFW Sectionals – Layer Viewer</title>
 
-  <link rel="stylesheet"
-        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <!-- Leaflet core CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
 
   <style>
-    html, body { height: 100%; margin: 0; }
-    #map { height: 100%; }
+    html, body {
+      height: 100%;
+      margin: 0;
+    }
+    #map {
+      height: 100%;
+    }
   </style>
 </head>
 <body>
 
 <div id="map"></div>
 
+<!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
@@ -25,10 +34,10 @@
 const titiler = "https://titiler-production.up.railway.app";
 
 // ------------------------------
-// Build encoded aeromap.io URL
+// Helper: encoded aeromap.io URL
 // ------------------------------
 function buildEncodedCogUrl(filename) {
-  return encodeURIComponent(`https://aeromap.io/${filename}`);
+  return encodeURIComponent("https://aeromap.io/" + filename);
 }
 
 // ------------------------------
@@ -40,7 +49,7 @@ const cogFiles = [
   "201209N_geo_COG.tif",
   "201209S_geo_COG.tif",
   "201309N_geo_COG.tif",
-  "201309S_geo_COG.tif",    // if wrong extension, .tit will auto-fix
+  "201309S_geo_COG.tif",
   "201403_geo_COG.tif",
   "201503_geo_COG.tif",
   "201603_geo_COG.tif",
@@ -48,10 +57,63 @@ const cogFiles = [
 ];
 
 // ------------------------------
-// Map startup
+// Initialize map
 // ------------------------------
-const dfwBounds = L.latLngBounds([32.3, -98.0], [33.3, -96.5]);
-const map = L.map("map").setView(dfwBounds.getCenter(), 11);
+const dfwBounds = L.latLngBounds(
+  [32.3, -98.0],  // SW
+  [33.3, -96.5]   // NE
+);
+const dfwCenter = dfwBounds.getCenter();
 
-// Base layer
-const osm = L.tileLayer
+const map = L.map("map", {
+  center: dfwCenter,
+  zoom: 11,
+  worldCopyJump: false
+});
+
+// Base OSM layer
+const osm = L.tileLayer(
+  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+  {
+    maxZoom: 22,
+    noWrap: true
+  }
+).addTo(map);
+
+// ------------------------------
+// Create COG overlay layers
+// ------------------------------
+const cogLayers = {};
+let lastLayer = null;
+
+cogFiles.forEach((filename) => {
+  const encoded = buildEncodedCogUrl(filename);
+  const url = `${titiler}/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png?url=${encoded}`;
+
+  const layer = L.tileLayer(url, {
+    tileSize: 256,
+    maxZoom: 22,
+    noWrap: true,
+  });
+
+  cogLayers["COG " + displayName] = layer;
+  lastLayer = layer;
+});
+
+// Turn on ONLY the last COG by default (201609)
+if (lastLayer) {
+  lastLayer.addTo(map);
+}
+
+// ------------------------------
+// Layer control (OSM + all COGs)
+// ------------------------------
+L.control.layers(
+  { "OpenStreetMap": osm },
+  cogLayers,
+  { collapsed: false }
+).addTo(map);
+
+</script>
+</body>
+</html>
