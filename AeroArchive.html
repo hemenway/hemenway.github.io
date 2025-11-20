@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>DFW Sectionals – Year Animation</title>
+  <title>DFW Sectionals – Year Animation (Additive)</title>
 
   <!-- Leaflet CSS -->
   <link
@@ -75,7 +75,7 @@ const cogFiles = [
   "201609_geo_COG.tif"
 ];
 
-// For pretty labels in UI if needed
+// For pretty labels
 const cogLabelsByFile = {};
 cogFiles.forEach(f => {
   cogLabelsByFile[f] = f.replace(/\.tit$/, ".tif");
@@ -111,7 +111,6 @@ const osm = L.tileLayer(
 // Create COG overlay layers (one per file)
 // ------------------------------
 const cogLayers = {};
-let defaultLayer = null;
 
 cogFiles.forEach((filename) => {
   const label = "COG " + cogLabelsByFile[filename];
@@ -129,13 +128,7 @@ cogFiles.forEach((filename) => {
   });
 
   cogLayers[label] = layer;
-  defaultLayer = layer; // last one: 201609
 });
-
-// Turn on ONLY the last COG by default (201609)
-if (defaultLayer) {
-  defaultLayer.addTo(map);
-}
 
 // ------------------------------
 // Layer control (OSM + all COGs)
@@ -147,8 +140,7 @@ L.control.layers(
 ).addTo(map);
 
 // ------------------------------
-// YEAR-GROUPED FRAMES for animation
-// Each frame has: label, and a list of COG layer keys to show together
+// YEAR-GROUPED FRAMES (additive animation)
 // ------------------------------
 const frames = [
   {
@@ -199,9 +191,9 @@ const frames = [
 ];
 
 // ------------------------------
-// SIMPLE ANIMATION (no TimeDimension)
+// SIMPLE ADDITIVE ANIMATION
 // ------------------------------
-let currentIndex = frames.length - 1; // start on the last frame (2016-09)
+let currentIndex = 0;      // start at earliest year
 let isPlaying = false;
 let playTimer = null;
 const frameDuration = 800; // ms between frames
@@ -209,41 +201,42 @@ const frameDuration = 800; // ms between frames
 let animPlayButton = null;
 let animLabelSpan = null;
 
-// Show only the layers in the given frame index
-function showFrame(index) {
+// Add (only) this frame's layers, keep previous ones
+function addFrame(index) {
   if (index < 0 || index >= frames.length) return;
   currentIndex = index;
 
-  // Remove ALL COG layers from map
-  Object.values(cogLayers).forEach(layer => {
-    if (map.hasLayer(layer)) {
-      map.removeLayer(layer);
+  const frame = frames[currentIndex];
+
+  frame.layerKeys.forEach(key => {
+    const layer = cogLayers[key];
+    if (layer && !map.hasLayer(layer)) {
+      layer.addTo(map);
     }
   });
 
-  // Add layers for this frame
-  const frame = frames[currentIndex];
-  frame.layerKeys.forEach(key => {
-    const layer = cogLayers[key];
-    if (layer) layer.addTo(map);
-  });
-
-  // Update label text in animation control
   if (animLabelSpan) {
     animLabelSpan.textContent = frame.label;
   }
 
-  console.log("Showing frame:", frame.label, frame.layerKeys);
+  console.log("Additive frame:", frame.label, frame.layerKeys);
 }
 
-// Step forward / backward
+// Step forward / backward (forward builds up; backward only updates label)
 function nextFrame() {
   const next = (currentIndex + 1) % frames.length;
-  showFrame(next);
+  addFrame(next);
 }
 function prevFrame() {
   const prev = (currentIndex - 1 + frames.length) % frames.length;
-  showFrame(prev);
+  // For additive behavior, we *only* change the label,
+  // not remove layers. All previously added years stay visible.
+  currentIndex = prev;
+  const frame = frames[currentIndex];
+  if (animLabelSpan) {
+    animLabelSpan.textContent = frame.label;
+  }
+  console.log("Moved index back to:", frame.label, "(layers remain additive)");
 }
 
 // Play / pause
@@ -316,9 +309,9 @@ const AnimationControl = L.Control.extend({
   }
 });
 
-// Add the control and sync frame on load
+// Add the control and initialize the first frame
 map.addControl(new AnimationControl());
-showFrame(currentIndex);
+addFrame(currentIndex); // show 2011 (N+S) at startup
 </script>
 </body>
 </html>
