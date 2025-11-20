@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>DFW Sectionals – Year Animation (Additive)</title>
+  <title>DFW Sectionals – Year Animation (Additive + Reset)</title>
 
   <!-- Leaflet CSS -->
   <link
@@ -201,6 +201,15 @@ const frameDuration = 800; // ms between frames
 let animPlayButton = null;
 let animLabelSpan = null;
 
+// Remove all COG layers from the map
+function clearAllCogLayers() {
+  Object.values(cogLayers).forEach(layer => {
+    if (map.hasLayer(layer)) {
+      map.removeLayer(layer);
+    }
+  });
+}
+
 // Add (only) this frame's layers, keep previous ones
 function addFrame(index) {
   if (index < 0 || index >= frames.length) return;
@@ -222,15 +231,25 @@ function addFrame(index) {
   console.log("Additive frame:", frame.label, frame.layerKeys);
 }
 
-// Step forward / backward (forward builds up; backward only updates label)
+// Step forward (with reset when wrapping)
 function nextFrame() {
-  const next = (currentIndex + 1) % frames.length;
+  const isLast = (currentIndex === frames.length - 1);
+  let next;
+
+  if (isLast) {
+    // Wrapping: clear everything and restart at first frame
+    clearAllCogLayers();
+    next = 0;
+  } else {
+    next = currentIndex + 1;
+  }
+
   addFrame(next);
 }
+
+// Step backward (index and label only; layers remain additive)
 function prevFrame() {
   const prev = (currentIndex - 1 + frames.length) % frames.length;
-  // For additive behavior, we *only* change the label,
-  // not remove layers. All previously added years stay visible.
   currentIndex = prev;
   const frame = frames[currentIndex];
   if (animLabelSpan) {
