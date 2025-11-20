@@ -2,12 +2,18 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>DFW Sectionals – Layer Viewer + Animation</title>
+  <title>DFW Sectionals – TimeDimension</title>
 
   <!-- Leaflet CSS -->
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+
+  <!-- TimeDimension CSS -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/leaflet-timedimension@1.1.1/dist/leaflet.timedimension.control.css"
   />
 
   <style>
@@ -18,25 +24,6 @@
     #map {
       height: 100%;
     }
-    /* Simple style for the animation control */
-    .anim-control {
-      background: white;
-      padding: 6px 8px;
-      font-family: sans-serif;
-      font-size: 12px;
-      box-shadow: 0 0 5px rgba(0,0,0,0.4);
-      border-radius: 4px;
-    }
-    .anim-control button {
-      margin: 0 2px;
-      padding: 2px 6px;
-      font-size: 11px;
-      cursor: pointer;
-    }
-    .anim-control span {
-      margin-left: 4px;
-      font-weight: bold;
-    }
   </style>
 </head>
 <body>
@@ -45,6 +32,10 @@
 
 <!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- TimeDimension deps -->
+<script src="https://cdn.jsdelivr.net/npm/iso8601-js-period@0.2.1/iso8601.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet-timedimension@1.1.1/dist/leaflet.timedimension.min.js"></script>
 
 <script>
 // ------------------------------
@@ -60,7 +51,7 @@ function buildEncodedCogUrl(filename) {
 }
 
 // ------------------------------
-// Your list of COG files (ordered frames)
+// Your list of COG files (in temporal order)
 // ------------------------------
 const cogFiles = [
   "201109N_geo_COG.tif",
@@ -75,8 +66,33 @@ const cogFiles = [
   "201609_geo_COG.tif"
 ];
 
-// Make a parallel list of human-readable labels for the control
+// Human-readable labels, if we want to log or show them
 const cogLabels = cogFiles.map(f => f.replace(/\.tit$/, ".tif"));
+
+// ------------------------------
+// Build TimeDimension times from filenames
+// YYYYMM -> YYYY-MM-01T00:00:00Z
+// ------------------------------
+function dateFromFilename(filename) {
+  const match = filename.match(/^(\d{4})(\d{2})/);
+  if (!match) return null;
+  const year = match[1];
+  const month = match[2];
+  return `${year}-${month}-01T00:00:00Z`;
+}
+
+const timeStrings = cogFiles.map(dateFromFilename);
+const timeMs = timeStrings.map(t => new Date(t).getTime());
+
+// ------------------------------
+// TimeDimension object
+// ------------------------------
+console.log("L.TimeDimension is", typeof L.TimeDimension);
+
+const timeDimension = new L.TimeDimension({
+  times: timeStrings,          // array of ISO strings
+  currentTime: timeMs[0]       // start at first
+});
 
 // ------------------------------
 // Initialize map
@@ -90,7 +106,9 @@ const dfwCenter = dfwBounds.getCenter();
 const map = L.map("map", {
   center: dfwCenter,
   zoom: 11,
-  worldCopyJump: false
+  worldCopyJump: false,
+  timeDimension: timeDimension,
+  timeDimensionControl: true  // adds the slider + play/stop controls
 });
 
 // Base OSM layer
@@ -103,168 +121,47 @@ const osm = L.tileLayer(
 ).addTo(map);
 
 // ------------------------------
-// Create COG overlay layers
+// Single COG tile layer – URL swapped on timechange
 // ------------------------------
-const cogLayers = {};
-let defaultLayer = null;
-
-cogFiles.forEach((filename, idx) => {
-  const label = "COG " + cogLabels[idx];
-
-  const encoded = buildEncodedCogUrl(filename);
-  const url = `${titiler}/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png?url=${encoded}`;
-
-  const layer = L.tileLayer(url, {
-    tileSize: 256,
-    maxZoom: 22,
-    noWrap: true,
-    // Transparent 1x1 PNG for missing tiles so errors aren't ugly
-    errorTileUrl:
-      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP8z8BQDwAD3gG7miRCNQAAAABJRU5ErkJggg=="
-  });
-
-  cogLayers[label] = layer;
-  defaultLayer = layer; // remember the last one
-});
-
-// Turn on ONLY the last COG by default (201609)
-if (defaultLayer) {
-  defaultLayer.addTo(map);
+function makeCogUrl(encoded) {
+  return `${titiler}/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png?url=${encoded}`;
 }
 
-// ------------------------------
-// Layer control (OSM + all COGs)
-// ------------------------------
+// start with first frame
+let currentIndex = 0;
+let currentEncodedUrl = buildEncodedCogUrl(cogFiles[currentIndex]);
+
+const cogLayer = L.tileLayer(makeCogUrl(currentEncodedUrl), {
+  tileSize: 256,
+  maxZoom: 22,
+  noWrap: true,
+  errorTileUrl:
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP8z8BQDwAD3gG7miRCNQAAAABJRU5ErkJggg=="
+}).addTo(map);
+
+// Optional: layer control just to toggle the raster on/off
 L.control.layers(
   { "OpenStreetMap": osm },
-  cogLayers,
+  { "DFW Sectional": cogLayer },
   { collapsed: false }
 ).addTo(map);
 
-console.log("COG overlay layers:", Object.keys(cogLayers));
-
-// ------------------------------------
-// SIMPLE ANIMATION CONTROL (radar-style)
-// ------------------------------------
-
-// Ordered list of the overlay labels, matching cogFiles order
-const overlayOrder = cogFiles.map((f, idx) => cogLabels[idx]);
-
-let currentIndex = overlayOrder.length - 1; // start on last (already visible)
-let isPlaying = false;
-let playTimer = null;
-const frameDuration = 800; // ms between frames (adjust speed here)
-
-// Helper: show only layer at given index
-function showFrame(index) {
-  if (index < 0 || index >= overlayOrder.length) return;
-  currentIndex = index;
-
-  // Remove all COG layers, then add only the current one
-  overlayOrder.forEach(label => {
-    const layer = cogLayers[label];
-    if (map.hasLayer(layer)) {
-      map.removeLayer(layer);
-    }
-  });
-
-  const currentLabel = overlayOrder[currentIndex];
-  const currentLayer = cogLayers[currentLabel];
-  if (currentLayer) {
-    currentLayer.addTo(map);
+// ------------------------------
+// Handle TimeDimension changes
+// ------------------------------
+timeDimension.on("timechange", function(e) {
+  const currentTime = e.time; // ms since epoch
+  const idx = timeMs.indexOf(currentTime);
+  if (idx === -1 || idx === currentIndex) {
+    return;
   }
 
-  // Update label in control display (if exists)
-  if (animLabelSpan) {
-    animLabelSpan.textContent = cogLabels[currentIndex];
-  }
+  currentIndex = idx;
+  currentEncodedUrl = buildEncodedCogUrl(cogFiles[currentIndex]);
 
-  console.log("Showing frame:", currentLabel);
-}
-
-// Next / previous frame
-function nextFrame() {
-  const next = (currentIndex + 1) % overlayOrder.length;
-  showFrame(next);
-}
-function prevFrame() {
-  const prev = (currentIndex - 1 + overlayOrder.length) % overlayOrder.length;
-  showFrame(prev);
-}
-
-// Play / pause
-function startPlaying() {
-  if (isPlaying) return;
-  isPlaying = true;
-  if (animPlayButton) animPlayButton.textContent = "Pause";
-  playTimer = setInterval(nextFrame, frameDuration);
-}
-function stopPlaying() {
-  if (!isPlaying) return;
-  isPlaying = false;
-  if (animPlayButton) animPlayButton.textContent = "Play";
-  if (playTimer) {
-    clearInterval(playTimer);
-    playTimer = null;
-  }
-}
-function togglePlaying() {
-  if (isPlaying) {
-    stopPlaying();
-  } else {
-    startPlaying();
-  }
-}
-
-// ------------------------------------
-// Add a custom Leaflet control for animation
-// ------------------------------------
-let animPlayButton = null;
-let animLabelSpan = null;
-
-const AnimationControl = L.Control.extend({
-  options: {
-    position: "bottomleft"
-  },
-  onAdd: function () {
-    const container = L.DomUtil.create("div", "anim-control");
-
-    // Stop map from swallowing click events on the control
-    L.DomEvent.disableClickPropagation(container);
-
-    const playBtn = L.DomUtil.create("button", "", container);
-    playBtn.textContent = "Play";
-    playBtn.onclick = function () {
-      togglePlaying();
-    };
-    animPlayButton = playBtn;
-
-    const prevBtn = L.DomUtil.create("button", "", container);
-    prevBtn.textContent = "◀";
-    prevBtn.onclick = function () {
-      stopPlaying();
-      prevFrame();
-    };
-
-    const nextBtn = L.DomUtil.create("button", "", container);
-    nextBtn.textContent = "▶";
-    nextBtn.onclick = function () {
-      stopPlaying();
-      nextFrame();
-    };
-
-    const labelSpan = L.DomUtil.create("span", "", container);
-    labelSpan.textContent = cogLabels[currentIndex];
-    animLabelSpan = labelSpan;
-
-    return container;
-  }
+  console.log("Timechange -> showing:", cogLabels[currentIndex]);
+  cogLayer.setUrl(makeCogUrl(currentEncodedUrl));
 });
-
-map.addControl(new AnimationControl());
-
-// Ensure we're synced to the “default” layer on load
-showFrame(currentIndex);
 </script>
 </body>
 </html>
