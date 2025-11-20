@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <title>DFW Sectionals – Layer Viewer</title>
 
-  <!-- Leaflet core CSS -->
+  <!-- Leaflet CSS -->
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -84,9 +84,12 @@ const osm = L.tileLayer(
 // Create COG overlay layers
 // ------------------------------
 const cogLayers = {};
-let lastLayer = null;
+let defaultLayer = null;
 
 cogFiles.forEach((filename) => {
+  // Label for the layer control (fix .tit typo only in label if it ever shows up)
+  const label = "COG " + filename.replace(/\.tit$/, ".tif");
+
   const encoded = buildEncodedCogUrl(filename);
   const url = `${titiler}/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png?url=${encoded}`;
 
@@ -94,15 +97,18 @@ cogFiles.forEach((filename) => {
     tileSize: 256,
     maxZoom: 22,
     noWrap: true,
+    // Transparent 1x1 PNG for missing tiles so errors aren't ugly
+    errorTileUrl:
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP8z8BQDwAD3gG7miRCNQAAAABJRU5ErkJggg=="
   });
 
-  cogLayers["COG " + displayName] = layer;
-  lastLayer = layer;
+  cogLayers[label] = layer;
+  defaultLayer = layer; // remember the last one
 });
 
 // Turn on ONLY the last COG by default (201609)
-if (lastLayer) {
-  lastLayer.addTo(map);
+if (defaultLayer) {
+  defaultLayer.addTo(map);
 }
 
 // ------------------------------
@@ -114,6 +120,8 @@ L.control.layers(
   { collapsed: false }
 ).addTo(map);
 
+// Debug: log what layers we registered
+console.log("COG overlay layers:", Object.keys(cogLayers));
 </script>
 </body>
 </html>
