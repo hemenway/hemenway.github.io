@@ -21,27 +21,46 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
+// ------------------------------
+// TiTiler base URL
+// ------------------------------
 const titiler = "https://titiler-production.up.railway.app";
-const encodedCogUrl =
-  "https%3A%2F%2Fpub-099103561dfc47f8935d399c2cfb9380.r2.dev%2F201309S_geo_COG.tif";
 
+// ------------------------------
+// NEW: Custom aeromap.io URL builder
+// ------------------------------
+function buildEncodedCogUrl(filename) {
+  const url = `https://aeromap.io/${filename}`;
+  return encodeURIComponent(url);
+}
+
+// Example filename following your pattern:
+// YYYYMM + optional extra text + _geo_COG.tif
+// e.g. "201309S_geo_COG.tif" or "202409_revision_geo_COG.tif"
+const filename = "201309S_geo_COG.tif";
+
+const encodedCogUrl = buildEncodedCogUrl(filename);
+
+// ------------------------------
 // Rough DFW bounding box and center
+// ------------------------------
 const dfwBounds = L.latLngBounds(
   [32.3, -98.0],  // SW
   [33.3, -96.5]   // NE
 );
-const dfwCenter = dfwBounds.getCenter(); // [lat, lon]
+const dfwCenter = dfwBounds.getCenter();
 
-// Create map – NO maxBounds now, so you can pan to entire TIFF
+// ------------------------------
+// Map (no maxBounds)
+// ------------------------------
 const map = L.map("map", {
-  // we’ll adjust min/max zoom once we know them from cog/info
   worldCopyJump: false
 });
-
-// Start view over DFW at a reasonable zoom
 map.setView(dfwCenter, 11);
 
+// ------------------------------
 // OSM basemap
+// ------------------------------
 const osm = L.tileLayer(
   "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
   {
@@ -50,7 +69,9 @@ const osm = L.tileLayer(
   }
 ).addTo(map);
 
-// TiTiler tiles
+// ------------------------------
+// TiTiler COG tile layer
+// ------------------------------
 const cogLayer = L.tileLayer(
   `${titiler}/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png?url=${encodedCogUrl}`,
   {
@@ -60,20 +81,20 @@ const cogLayer = L.tileLayer(
   }
 ).addTo(map);
 
-// Optional layer control
-L.control.layers({ OSM: osm }, { "2013 Aerial": cogLayer }).addTo(map);
+// Layer control
+L.control.layers({ OSM: osm }, { ["COG " + filename]: cogLayer }).addTo(map);
 
-// Use cog/info ONLY to clamp zoom levels, not to set view
+// ------------------------------
+// Fetch raster metadata and clamp zoom levels
+// ------------------------------
 fetch(`${titiler}/cog/info?url=${encodedCogUrl}`)
   .then(r => r.json())
   .then(info => {
     console.log("COG info:", info);
     if (typeof info.minzoom === "number" && typeof info.maxzoom === "number") {
-      // Clamp map zooms to what the raster supports
       map.setMinZoom(info.minzoom);
       map.setMaxZoom(info.maxzoom);
 
-      // If our starting zoom is outside that range, bring it back in
       const currentZoom = map.getZoom();
       if (currentZoom < info.minzoom || currentZoom > info.maxzoom) {
         map.setZoom(info.minzoom + 1);
@@ -81,6 +102,7 @@ fetch(`${titiler}/cog/info?url=${encodedCogUrl}`)
     }
   })
   .catch(err => console.error("cog/info error:", err));
+
 </script>
 </body>
 </html>
