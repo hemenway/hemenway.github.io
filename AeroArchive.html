@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>DFW Only Test</title>
+  <title>DFW Start, Full TIFF View</title>
 
   <link
     rel="stylesheet"
@@ -22,41 +22,65 @@
 
 <script>
 const titiler = "https://titiler-production.up.railway.app";
-const cog = "https%3A%2F%2Fpub-099103561dfc47f8935d399c2cfb9380.r2.dev%2F201309S_geo_COG.tif";
+const encodedCogUrl =
+  "https%3A%2F%2Fpub-099103561dfc47f8935d399c2cfb9380.r2.dev%2F201309S_geo_COG.tif";
 
-// Hard-coded DFW bounding box.
+// Rough DFW bounding box and center
 const dfwBounds = L.latLngBounds(
   [32.3, -98.0],  // SW
   [33.3, -96.5]   // NE
 );
+const dfwCenter = dfwBounds.getCenter(); // [lat, lon]
 
-// Create map focused only on DFW. No auto-zoom from COG.
+// Create map – NO maxBounds now, so you can pan to entire TIFF
 const map = L.map("map", {
-  minZoom: 9,
-  maxZoom: 18,
-  maxBounds: dfwBounds.pad(0.25),
+  // we’ll adjust min/max zoom once we know them from cog/info
   worldCopyJump: false
 });
 
-map.fitBounds(dfwBounds);
+// Start view over DFW at a reasonable zoom
+map.setView(dfwCenter, 11);
 
 // OSM basemap
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 19,
-  noWrap: true
-}).addTo(map);
-
-// TiTiler tiles
-L.tileLayer(
-  `${titiler}/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png?url=${cog}`,
+const osm = L.tileLayer(
+  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
   {
-    tileSize: 256,
-    minZoom: 9,
-    maxZoom: 18,
+    maxZoom: 22,
     noWrap: true
   }
 ).addTo(map);
 
+// TiTiler tiles
+const cogLayer = L.tileLayer(
+  `${titiler}/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png?url=${encodedCogUrl}`,
+  {
+    tileSize: 256,
+    maxZoom: 22,
+    noWrap: true
+  }
+).addTo(map);
+
+// Optional layer control
+L.control.layers({ OSM: osm }, { "2013 Aerial": cogLayer }).addTo(map);
+
+// Use cog/info ONLY to clamp zoom levels, not to set view
+fetch(`${titiler}/cog/info?url=${encodedCogUrl}`)
+  .then(r => r.json())
+  .then(info => {
+    console.log("COG info:", info);
+    if (typeof info.minzoom === "number" && typeof info.maxzoom === "number") {
+      // Clamp map zooms to what the raster supports
+      map.setMinZoom(info.minzoom);
+      map.setMaxZoom(info.maxzoom);
+
+      // If our starting zoom is outside that range, bring it back in
+      const currentZoom = map.getZoom();
+      if (currentZoom < info.minzoom || currentZoom > info.maxzoom) {
+        map.setZoom(info.minzoom + 1);
+      }
+    }
+  })
+  .catch(err => console.error("cog/info error:", err));
 </script>
 </body>
 </html>
