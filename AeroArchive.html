@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>DFW Sectionals – Layer Viewer</title>
+  <title>DFW Sectionals – Layer Viewer + Animation</title>
 
   <!-- Leaflet CSS -->
   <link
@@ -17,6 +17,25 @@
     }
     #map {
       height: 100%;
+    }
+    /* Simple style for the animation control */
+    .anim-control {
+      background: white;
+      padding: 6px 8px;
+      font-family: sans-serif;
+      font-size: 12px;
+      box-shadow: 0 0 5px rgba(0,0,0,0.4);
+      border-radius: 4px;
+    }
+    .anim-control button {
+      margin: 0 2px;
+      padding: 2px 6px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .anim-control span {
+      margin-left: 4px;
+      font-weight: bold;
     }
   </style>
 </head>
@@ -41,7 +60,7 @@ function buildEncodedCogUrl(filename) {
 }
 
 // ------------------------------
-// Your list of COG files
+// Your list of COG files (ordered frames)
 // ------------------------------
 const cogFiles = [
   "201109N_geo_COG.tif",
@@ -55,6 +74,9 @@ const cogFiles = [
   "201603_geo_COG.tif",
   "201609_geo_COG.tif"
 ];
+
+// Make a parallel list of human-readable labels for the control
+const cogLabels = cogFiles.map(f => f.replace(/\.tit$/, ".tif"));
 
 // ------------------------------
 // Initialize map
@@ -86,9 +108,8 @@ const osm = L.tileLayer(
 const cogLayers = {};
 let defaultLayer = null;
 
-cogFiles.forEach((filename) => {
-  // Label for the layer control (fix .tit typo only in label if it ever shows up)
-  const label = "COG " + filename.replace(/\.tit$/, ".tif");
+cogFiles.forEach((filename, idx) => {
+  const label = "COG " + cogLabels[idx];
 
   const encoded = buildEncodedCogUrl(filename);
   const url = `${titiler}/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png?url=${encoded}`;
@@ -120,8 +141,130 @@ L.control.layers(
   { collapsed: false }
 ).addTo(map);
 
-// Debug: log what layers we registered
 console.log("COG overlay layers:", Object.keys(cogLayers));
+
+// ------------------------------------
+// SIMPLE ANIMATION CONTROL (radar-style)
+// ------------------------------------
+
+// Ordered list of the overlay labels, matching cogFiles order
+const overlayOrder = cogFiles.map((f, idx) => cogLabels[idx]);
+
+let currentIndex = overlayOrder.length - 1; // start on last (already visible)
+let isPlaying = false;
+let playTimer = null;
+const frameDuration = 800; // ms between frames (adjust speed here)
+
+// Helper: show only layer at given index
+function showFrame(index) {
+  if (index < 0 || index >= overlayOrder.length) return;
+  currentIndex = index;
+
+  // Remove all COG layers, then add only the current one
+  overlayOrder.forEach(label => {
+    const layer = cogLayers[label];
+    if (map.hasLayer(layer)) {
+      map.removeLayer(layer);
+    }
+  });
+
+  const currentLabel = overlayOrder[currentIndex];
+  const currentLayer = cogLayers[currentLabel];
+  if (currentLayer) {
+    currentLayer.addTo(map);
+  }
+
+  // Update label in control display (if exists)
+  if (animLabelSpan) {
+    animLabelSpan.textContent = cogLabels[currentIndex];
+  }
+
+  console.log("Showing frame:", currentLabel);
+}
+
+// Next / previous frame
+function nextFrame() {
+  const next = (currentIndex + 1) % overlayOrder.length;
+  showFrame(next);
+}
+function prevFrame() {
+  const prev = (currentIndex - 1 + overlayOrder.length) % overlayOrder.length;
+  showFrame(prev);
+}
+
+// Play / pause
+function startPlaying() {
+  if (isPlaying) return;
+  isPlaying = true;
+  if (animPlayButton) animPlayButton.textContent = "Pause";
+  playTimer = setInterval(nextFrame, frameDuration);
+}
+function stopPlaying() {
+  if (!isPlaying) return;
+  isPlaying = false;
+  if (animPlayButton) animPlayButton.textContent = "Play";
+  if (playTimer) {
+    clearInterval(playTimer);
+    playTimer = null;
+  }
+}
+function togglePlaying() {
+  if (isPlaying) {
+    stopPlaying();
+  } else {
+    startPlaying();
+  }
+}
+
+// ------------------------------------
+// Add a custom Leaflet control for animation
+// ------------------------------------
+let animPlayButton = null;
+let animLabelSpan = null;
+
+const AnimationControl = L.Control.extend({
+  options: {
+    position: "bottomleft"
+  },
+  onAdd: function () {
+    const container = L.DomUtil.create("div", "anim-control");
+
+    // Stop map from swallowing click events on the control
+    L.DomEvent.disableClickPropagation(container);
+
+    const playBtn = L.DomUtil.create("button", "", container);
+    playBtn.textContent = "Play";
+    playBtn.onclick = function () {
+      togglePlaying();
+    };
+    animPlayButton = playBtn;
+
+    const prevBtn = L.DomUtil.create("button", "", container);
+    prevBtn.textContent = "◀";
+    prevBtn.onclick = function () {
+      stopPlaying();
+      prevFrame();
+    };
+
+    const nextBtn = L.DomUtil.create("button", "", container);
+    nextBtn.textContent = "▶";
+    nextBtn.onclick = function () {
+      stopPlaying();
+      nextFrame();
+    };
+
+    const labelSpan = L.DomUtil.create("span", "", container);
+    labelSpan.textContent = cogLabels[currentIndex];
+    animLabelSpan = labelSpan;
+
+    return container;
+  }
+});
+
+map.addControl(new AnimationControl());
+
+// Ensure we're synced to the “default” layer on load
+showFrame(currentIndex);
 </script>
 </body>
 </html>
