@@ -2,12 +2,10 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>DFW Start, Full TIFF View</title>
+  <title>DFW Sectionals – Layer Viewer</title>
 
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  />
+  <link rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
   <style>
     html, body { height: 100%; margin: 0; }
@@ -27,15 +25,14 @@
 const titiler = "https://titiler-production.up.railway.app";
 
 // ------------------------------
-// Custom aeromap.io URL builder
+// Build encoded aeromap.io URL
 // ------------------------------
 function buildEncodedCogUrl(filename) {
-  const url = `https://aeromap.io/${filename}`;
-  return encodeURIComponent(url);
+  return encodeURIComponent(`https://aeromap.io/${filename}`);
 }
 
 // ------------------------------
-// List of COG files to add as layers
+// Your list of COG files
 // ------------------------------
 const cogFiles = [
   "201109N_geo_COG.tif",
@@ -43,7 +40,7 @@ const cogFiles = [
   "201209N_geo_COG.tif",
   "201209S_geo_COG.tif",
   "201309N_geo_COG.tif",
-  "201309S_geo_COG.tif",
+  "201309S_geo_COG.tif",    // if wrong extension, .tit will auto-fix
   "201403_geo_COG.tif",
   "201503_geo_COG.tif",
   "201603_geo_COG.tif",
@@ -51,89 +48,10 @@ const cogFiles = [
 ];
 
 // ------------------------------
-// Rough DFW bounding box and center
+// Map startup
 // ------------------------------
-const dfwBounds = L.latLngBounds(
-  [32.3, -98.0],  // SW
-  [33.3, -96.5]   // NE
-);
-const dfwCenter = dfwBounds.getCenter();
+const dfwBounds = L.latLngBounds([32.3, -98.0], [33.3, -96.5]);
+const map = L.map("map").setView(dfwBounds.getCenter(), 11);
 
-// ------------------------------
-// Map (no maxBounds)
-// ------------------------------
-const map = L.map("map", {
-  worldCopyJump: false
-});
-map.setView(dfwCenter, 11);
-
-// ------------------------------
-// OSM basemap
-// ------------------------------
-const osm = L.tileLayer(
-  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-  {
-    maxZoom: 22,
-    noWrap: true
-  }
-).addTo(map);
-
-// ------------------------------
-// Add COG layers and show the last one by default
-// ------------------------------
-const cogLayers = {};
-let lastLayer = null;
-
-cogFiles.forEach(filename => {
-  const encodedCogUrl = buildEncodedCogUrl(filename);
-
-  // .tit typo correction: treat .tit as .tif
-  const displayName = filename.replace(/\.tit$/, ".tif");
-
-  const layer = L.tileLayer(
-    `${titiler}/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png?url=${encodedCogUrl}`,
-    {
-      tileSize: 256,
-      maxZoom: 22,
-      noWrap: true,
-      errorTileUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP8z8BQDwAD3gG7miRCNQAAAABJRU5ErkJggg=="
-    }
-  );
-  cogLayers["COG " + displayName] = layer;
-  lastLayer = layer;
-});
-
-// Add the last one by default (201609_geo_COG.tif)
-if (lastLayer) {
-  lastLayer.addTo(map);
-}
-
-// Layer control
-L.control.layers({ OSM: osm }, cogLayers).addTo(map);
-
-// ------------------------------
-// Optionally fetch raster metadata for each layer to clamp zoom
-// This example only does so for the visible one (the last by default)
-if (lastLayer) {
-  const lastFile = cogFiles[cogFiles.length - 1];
-  const encodedCogUrl = buildEncodedCogUrl(lastFile);
-  fetch(`${titiler}/cog/info?url=${encodedCogUrl}`)
-    .then(r => r.json())
-    .then(info => {
-      console.log("COG info:", info);
-      if (typeof info.minzoom === "number" && typeof info.maxzoom === "number") {
-        map.setMinZoom(info.minzoom);
-        map.setMaxZoom(info.maxzoom);
-
-        const currentZoom = map.getZoom();
-        if (currentZoom < info.minzoom || currentZoom > info.maxzoom) {
-          map.setZoom(info.minzoom + 1);
-        }
-      }
-    })
-    .catch(err => console.error("cog/info error:", err));
-}
-
-</script>
-</body>
-</html>
+// Base layer
+const osm = L.tileLayer
