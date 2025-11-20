@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>DFW Sectionals – Layer Viewer + Animation</title>
+  <title>DFW Sectionals – Year Animation</title>
 
   <!-- Leaflet CSS -->
   <link
@@ -60,7 +60,7 @@ function buildEncodedCogUrl(filename) {
 }
 
 // ------------------------------
-// Your list of COG files (ordered frames)
+// All COG files (individual layers)
 // ------------------------------
 const cogFiles = [
   "201109N_geo_COG.tif",
@@ -75,11 +75,14 @@ const cogFiles = [
   "201609_geo_COG.tif"
 ];
 
-// Human-readable labels for display (no “COG ” prefix)
-const cogLabels = cogFiles.map(f => f.replace(/\.tit$/, ".tif"));
+// For pretty labels in UI if needed
+const cogLabelsByFile = {};
+cogFiles.forEach(f => {
+  cogLabelsByFile[f] = f.replace(/\.tit$/, ".tif");
+});
 
 // ------------------------------
-// Initialize map
+// Initialize map (no fade animations)
 // ------------------------------
 const dfwBounds = L.latLngBounds(
   [32.3, -98.0],  // SW
@@ -90,7 +93,9 @@ const dfwCenter = dfwBounds.getCenter();
 const map = L.map("map", {
   center: dfwCenter,
   zoom: 11,
-  worldCopyJump: false
+  worldCopyJump: false,
+  fadeAnimation: false,
+  zoomAnimation: false
 });
 
 // Base OSM layer
@@ -103,15 +108,13 @@ const osm = L.tileLayer(
 ).addTo(map);
 
 // ------------------------------
-// Create COG overlay layers
+// Create COG overlay layers (one per file)
 // ------------------------------
 const cogLayers = {};
-const overlayLabels = []; // "COG <filename>" labels for the layer control & animation
 let defaultLayer = null;
 
-cogFiles.forEach((filename, idx) => {
-  const label = "COG " + cogLabels[idx];
-  overlayLabels.push(label);
+cogFiles.forEach((filename) => {
+  const label = "COG " + cogLabelsByFile[filename];
 
   const encoded = buildEncodedCogUrl(filename);
   const url = `${titiler}/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png?url=${encoded}`;
@@ -120,13 +123,13 @@ cogFiles.forEach((filename, idx) => {
     tileSize: 256,
     maxZoom: 22,
     noWrap: true,
-    // Transparent 1x1 PNG for missing tiles so errors aren't ugly
+    // Transparent 1x1 PNG for missing tiles
     errorTileUrl:
       "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP8z8BQDwAD3gG7miRCNQAAAABJRU5ErkJggg=="
   });
 
   cogLayers[label] = layer;
-  defaultLayer = layer; // remember the last one
+  defaultLayer = layer; // last one: 201609
 });
 
 // Turn on ONLY the last COG by default (201609)
@@ -143,55 +146,103 @@ L.control.layers(
   { collapsed: false }
 ).addTo(map);
 
-// Debug: see what overlays we registered
-console.log("COG overlay layers:", overlayLabels);
+// ------------------------------
+// YEAR-GROUPED FRAMES for animation
+// Each frame has: label, and a list of COG layer keys to show together
+// ------------------------------
+const frames = [
+  {
+    label: "2011",
+    layerKeys: [
+      "COG " + cogLabelsByFile["201109N_geo_COG.tif"],
+      "COG " + cogLabelsByFile["201109S_geo_COG.tif"]
+    ]
+  },
+  {
+    label: "2012",
+    layerKeys: [
+      "COG " + cogLabelsByFile["201209N_geo_COG.tif"],
+      "COG " + cogLabelsByFile["201209S_geo_COG.tif"]
+    ]
+  },
+  {
+    label: "2013",
+    layerKeys: [
+      "COG " + cogLabelsByFile["201309N_geo_COG.tif"],
+      "COG " + cogLabelsByFile["201309S_geo_COG.tif"]
+    ]
+  },
+  {
+    label: "2014",
+    layerKeys: [
+      "COG " + cogLabelsByFile["201403_geo_COG.tif"]
+    ]
+  },
+  {
+    label: "2015",
+    layerKeys: [
+      "COG " + cogLabelsByFile["201503_geo_COG.tif"]
+    ]
+  },
+  {
+    label: "2016-03",
+    layerKeys: [
+      "COG " + cogLabelsByFile["201603_geo_COG.tif"]
+    ]
+  },
+  {
+    label: "2016-09",
+    layerKeys: [
+      "COG " + cogLabelsByFile["201609_geo_COG.tif"]
+    ]
+  }
+];
 
 // ------------------------------
 // SIMPLE ANIMATION (no TimeDimension)
 // ------------------------------
-let currentIndex = overlayLabels.length - 1; // start on last frame
+let currentIndex = frames.length - 1; // start on the last frame (2016-09)
 let isPlaying = false;
 let playTimer = null;
-const frameDuration = 800; // ms between frames; adjust speed here
+const frameDuration = 800; // ms between frames
 
 let animPlayButton = null;
 let animLabelSpan = null;
 
-// Show only the layer at the given index
+// Show only the layers in the given frame index
 function showFrame(index) {
-  if (index < 0 || index >= overlayLabels.length) return;
+  if (index < 0 || index >= frames.length) return;
   currentIndex = index;
 
-  // Remove all COG layers
-  overlayLabels.forEach(label => {
-    const layer = cogLayers[label];
-    if (layer && map.hasLayer(layer)) {
+  // Remove ALL COG layers from map
+  Object.values(cogLayers).forEach(layer => {
+    if (map.hasLayer(layer)) {
       map.removeLayer(layer);
     }
   });
 
-  // Add the current one
-  const currentLabel = overlayLabels[currentIndex];
-  const currentLayer = cogLayers[currentLabel];
-  if (currentLayer) {
-    currentLayer.addTo(map);
-  }
+  // Add layers for this frame
+  const frame = frames[currentIndex];
+  frame.layerKeys.forEach(key => {
+    const layer = cogLayers[key];
+    if (layer) layer.addTo(map);
+  });
 
-  // Update text in the animation control
+  // Update label text in animation control
   if (animLabelSpan) {
-    animLabelSpan.textContent = cogLabels[currentIndex];
+    animLabelSpan.textContent = frame.label;
   }
 
-  console.log("Showing frame:", currentLabel);
+  console.log("Showing frame:", frame.label, frame.layerKeys);
 }
 
 // Step forward / backward
 function nextFrame() {
-  const next = (currentIndex + 1) % overlayLabels.length;
+  const next = (currentIndex + 1) % frames.length;
   showFrame(next);
 }
 function prevFrame() {
-  const prev = (currentIndex - 1 + overlayLabels.length) % overlayLabels.length;
+  const prev = (currentIndex - 1 + frames.length) % frames.length;
   showFrame(prev);
 }
 
@@ -229,10 +280,10 @@ const AnimationControl = L.Control.extend({
   onAdd: function () {
     const container = L.DomUtil.create("div", "anim-control");
 
-    // Prevent map from reacting to clicks on the control
+    // prevent map interactions from clicks on control
     L.DomEvent.disableClickPropagation(container);
 
-    // Play / Pause button
+    // Play / Pause
     const playBtn = L.DomUtil.create("button", "", container);
     playBtn.textContent = "Play";
     playBtn.onclick = function () {
@@ -240,7 +291,7 @@ const AnimationControl = L.Control.extend({
     };
     animPlayButton = playBtn;
 
-    // Prev button
+    // Prev
     const prevBtn = L.DomUtil.create("button", "", container);
     prevBtn.textContent = "◀";
     prevBtn.onclick = function () {
@@ -248,7 +299,7 @@ const AnimationControl = L.Control.extend({
       prevFrame();
     };
 
-    // Next button
+    // Next
     const nextBtn = L.DomUtil.create("button", "", container);
     nextBtn.textContent = "▶";
     nextBtn.onclick = function () {
@@ -256,19 +307,17 @@ const AnimationControl = L.Control.extend({
       nextFrame();
     };
 
-    // Label showing current frame
+    // Label
     const labelSpan = L.DomUtil.create("span", "", container);
-    labelSpan.textContent = cogLabels[currentIndex];
+    labelSpan.textContent = frames[currentIndex].label;
     animLabelSpan = labelSpan;
 
     return container;
   }
 });
 
-// Add the animation control to the map
+// Add the control and sync frame on load
 map.addControl(new AnimationControl());
-
-// Make sure currentIndex frame is actually visible on load
 showFrame(currentIndex);
 </script>
 </body>
