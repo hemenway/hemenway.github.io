@@ -1,86 +1,62 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <title>DFW TiTiler Test</title>
+<head>
+  <meta charset="utf-8" />
+  <title>DFW Only Test</title>
 
-    <!-- Leaflet CSS -->
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-      crossorigin=""
-    />
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
 
-    <style>
-      html,
-      body {
-        height: 100%;
-        margin: 0;
-      }
-      #map {
-        width: 100%;
-        height: 100%;
-      }
-    </style>
-  </head>
-  <body>
-    <div id="map"></div>
+  <style>
+    html, body { height: 100%; margin: 0; }
+    #map { height: 100%; }
+  </style>
+</head>
+<body>
 
-    <!-- Leaflet JS -->
-    <script
-      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-      crossorigin=""
-    ></script>
+<div id="map"></div>
 
-    <script>
-      // TiTiler + COG
-      const titilerBase = "https://titiler-production.up.railway.app";
-      const encodedCogUrl =
-        "https%3A%2F%2Fpub-099103561dfc47f8935d399c2cfb9380.r2.dev%2F201309S_geo_COG.tif";
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-      // Hard-coded DFW bounding box (tweak if needed)
-      // [south, west], [north, east]
-      const dfwBounds = L.latLngBounds(
-        [32.3, -98.0], // SW
-        [33.3, -96.5]  // NE
-      );
+<script>
+const titiler = "https://titiler-production.up.railway.app";
+const cog = "https%3A%2F%2Fpub-099103561dfc47f8935d399c2cfb9380.r2.dev%2F201309S_geo_COG.tif";
 
-      // Create map focused on DFW, with limited zoom + panning
-      const map = L.map("map", {
-        minZoom: 9,
-        maxZoom: 18,
-        maxBounds: dfwBounds.pad(0.5), // don't let user pan too far away
-        worldCopyJump: false
-      });
+// Hard-coded DFW bounding box.
+const dfwBounds = L.latLngBounds(
+  [32.3, -98.0],  // SW
+  [33.3, -96.5]   // NE
+);
 
-      map.fitBounds(dfwBounds); // THIS is the only thing setting the view
+// Create map focused only on DFW. No auto-zoom from COG.
+const map = L.map("map", {
+  minZoom: 9,
+  maxZoom: 18,
+  maxBounds: dfwBounds.pad(0.25),
+  worldCopyJump: false
+});
 
-      // OSM basemap
-      const osm = L.tileLayer(
-        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        {
-          maxZoom: 19,
-          noWrap: true,
-          attribution: "&copy; OpenStreetMap contributors"
-        }
-      ).addTo(map);
+map.fitBounds(dfwBounds);
 
-      // COG tile layer via TiTiler (note WebMercatorQuad)
-      const cogLayer = L.tileLayer(
-        `${titilerBase}/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png?url=${encodedCogUrl}`,
-        {
-          tileSize: 256,
-          minZoom: 9,
-          maxZoom: 18,
-          noWrap: true,
-          attribution: "&copy; Historical Aerials"
-        }
-      ).addTo(map);
+// OSM basemap
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 19,
+  noWrap: true
+}).addTo(map);
 
-      // Layer control
-      L.control.layers({ OSM: osm }, { "2013 Aerial": cogLayer }).addTo(map);
-    </script>
-  </body>
+// TiTiler tiles
+L.tileLayer(
+  `${titiler}/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png?url=${cog}`,
+  {
+    tileSize: 256,
+    minZoom: 9,
+    maxZoom: 18,
+    noWrap: true
+  }
+).addTo(map);
+
+</script>
+</body>
 </html>
