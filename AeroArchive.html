@@ -77,7 +77,8 @@ const cogLayer = L.tileLayer(
   {
     tileSize: 256,
     maxZoom: 22,
-    noWrap: true
+    noWrap: true,
+    errorTileUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP8z8BQDwAD3gG7miRCNQAAAABJRU5ErkJggg==" // 1px transparent PNG
   }
 ).addTo(map);
 
