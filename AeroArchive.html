@@ -1,3 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>DFW Sectionals – TimeDimension</title>
+
+  <!-- Leaflet core -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+
+  <!-- TimeDimension CSS -->
+  <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/leaflet-timedimension@1.1.1/dist/leaflet.timedimension.control.css"
+  />
+
+  <style>
+    html, body { height: 100%; margin: 0; }
+    #map { height: 100%; }
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<!-- Leaflet -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- TimeDimension deps -->
+<script src="https://cdn.jsdelivr.net/npm/iso8601-js-period@0.2.1/iso8601.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet-timedimension@1.1.1/dist/leaflet.timedimension.min.js"></script>
+
 <script>
 // ------------------------------
 // TiTiler base URL
@@ -13,7 +47,7 @@ const editions = [
   { filename: "201209N_geo_COG.tif", label: "2012 N" },
   { filename: "201209S_geo_COG.tif", label: "2012 S" },
   { filename: "201309N_geo_COG.tif", label: "2013 N" },
-  { filename: "201309S_geo_COG.tif", label: "2013 S" }, // make sure this really is .tif
+  { filename: "201309S_geo_COG.tif", label: "2013 S" }, // ensure this is really .tif
   { filename: "201403_geo_COG.tif", label: "2014" },
   { filename: "201503_geo_COG.tif", label: "2015" },
   { filename: "201603_geo_COG.tif", label: "2016-03" },
@@ -21,7 +55,7 @@ const editions = [
 ];
 
 // ------------------------------
-// Build aeromap.io encoded URL
+// Helper: build aeromap.io encoded URL
 // ------------------------------
 function buildEncodedCogUrl(filename) {
   const url = `https://aeromap.io/${filename}`;
@@ -29,7 +63,7 @@ function buildEncodedCogUrl(filename) {
 }
 
 // ------------------------------
-// Derive a date from filename: YYYYMM -> YYYY-MM-01T00:00:00Z
+// Helper: derive ISO time from filename: YYYYMM -> YYYY-MM-01T00:00:00Z
 // ------------------------------
 function dateFromFilename(filename) {
   const match = filename.match(/^(\d{4})(\d{2})/);
@@ -43,37 +77,33 @@ const timeStrings = editions.map(e => dateFromFilename(e.filename));
 const timeMs = timeStrings.map(t => new Date(t).getTime());
 
 // ------------------------------
-// Create the TimeDimension object
+// TimeDimension object
 // ------------------------------
+console.log("L.TimeDimension is", typeof L.TimeDimension);
 const timeDimension = new L.TimeDimension({
   times: timeStrings.join(','),
   currentTime: timeMs[0]
 });
 
-console.log("L.TimeDimension is", typeof L.TimeDimension);
-
 // ------------------------------
-// Rough DFW bounding box and center (for initial view)
-// ------------------------------
-const dfwBounds = L.latLngBounds(
-  [32.3, -98.0],  // SW
-  [33.3, -96.5]   // NE
-);
-const dfwCenter = dfwBounds.getCenter();
-
-// ------------------------------
-// Map with TimeDimension
+// Create basic map (we'll fit to COG bounds later)
 // ------------------------------
 const map = L.map("map", {
   worldCopyJump: false,
   timeDimension: timeDimension,
   timeDimensionControl: false
 });
-map.setView(dfwCenter, 11);
 
-// ------------------------------
-// TimeDimension control (year-only display)
-// ------------------------------
+// OSM basemap
+const osm = L.tileLayer(
+  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+  {
+    maxZoom: 22,
+    noWrap: true
+  }
+).addTo(map);
+
+// TimeDimension control with year-only label
 const timeDimensionControl = new L.Control.TimeDimension({
   position: "bottomleft",
   playerOptions: {
@@ -89,23 +119,13 @@ timeDimensionControl._getDisplayDateFormat = function(date) {
 };
 
 // ------------------------------
-// OSM basemap
-// ------------------------------
-const osm = L.tileLayer(
-  "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-  {
-    maxZoom: 22,
-    noWrap: true
-  }
-).addTo(map);
-
-// ------------------------------
-// SINGLE COG tile layer – we just swap URL on time change
+// SINGLE COG tile layer – URL swapped per time step
 // ------------------------------
 let currentIndex = 0;
 let currentEncodedUrl = buildEncodedCogUrl(editions[currentIndex].filename);
 
 function makeCogUrl(encoded) {
+  // Using WebMercatorQuad tiles from TiTiler
   return `${titiler}/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png?url=${encoded}`;
 }
 
@@ -113,13 +133,11 @@ const cogLayer = L.tileLayer(makeCogUrl(currentEncodedUrl), {
   tileSize: 256,
   maxZoom: 22,
   noWrap: true,
-  keepBuffer: 1,       // request fewer offscreen tiles
-  updateWhenIdle: true // don't spam while panning
+  keepBuffer: 1,
+  updateWhenIdle: true
 }).addTo(map);
 
-// ------------------------------
-// Time change handler – swap COG URL
-// ------------------------------
+// When time changes, swap the COG URL
 timeDimension.on("timechange", function(e) {
   const currentTime = e.time;
   const idx = timeMs.indexOf(currentTime);
@@ -127,16 +145,33 @@ timeDimension.on("timechange", function(e) {
 
   currentIndex = idx;
   currentEncodedUrl = buildEncodedCogUrl(editions[currentIndex].filename);
-
   console.log("Switching to edition:", editions[currentIndex].filename);
   cogLayer.setUrl(makeCogUrl(currentEncodedUrl));
 });
 
 // ------------------------------
-// Optional: clamp zoom based on first COG info
+// Fit map to COG bounds in WGS84 and clamp zooms
 // ------------------------------
 const firstEncoded = buildEncodedCogUrl(editions[0].filename);
 
+// 1) Get bounds in WGS84 to position the map correctly
+fetch(`${titiler}/cog/bounds?url=${firstEncoded}`)
+  .then(r => r.json())
+  .then(b => {
+    console.log("COG bounds (WGS84):", b);
+    if (b && Array.isArray(b.bounds) && b.bounds.length === 4) {
+      const [minX, minY, maxX, maxY] = b.bounds; // [west, south, east, north]
+      const sw = [minY, minX];
+      const ne = [maxY, maxX];
+      const latLngBounds = L.latLngBounds(sw, ne);
+
+      map.fitBounds(latLngBounds);
+      map.setMaxBounds(latLngBounds.pad(0.1)); // keep panning near the map
+    }
+  })
+  .catch(err => console.error("cog/bounds error:", err));
+
+// 2) Get zoom constraints (optional)
 fetch(`${titiler}/cog/info?url=${firstEncoded}`)
   .then(r => r.json())
   .then(info => {
@@ -153,3 +188,5 @@ fetch(`${titiler}/cog/info?url=${firstEncoded}`)
   })
   .catch(err => console.error("cog/info error:", err));
 </script>
+</body>
+</html>
