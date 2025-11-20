@@ -27,19 +27,28 @@
 const titiler = "https://titiler-production.up.railway.app";
 
 // ------------------------------
-// NEW: Custom aeromap.io URL builder
+// Custom aeromap.io URL builder
 // ------------------------------
 function buildEncodedCogUrl(filename) {
   const url = `https://aeromap.io/${filename}`;
   return encodeURIComponent(url);
 }
 
-// Example filename following your pattern:
-// YYYYMM + optional extra text + _geo_COG.tif
-// e.g. "201309S_geo_COG.tif" or "202409_revision_geo_COG.tif"
-const filename = "201309S_geo_COG.tif";
-
-const encodedCogUrl = buildEncodedCogUrl(filename);
+// ------------------------------
+// List of COG files to add as layers
+// ------------------------------
+const cogFiles = [
+  "201109N_geo_COG.tif",
+  "201109S_geo_COG.tif",
+  "201209N_geo_COG.tif",
+  "201209S_geo_COG.tif",
+  "201309N_geo_COG.tif",
+  "201309S_geo_COG.tif",
+  "201403_geo_COG.tif",
+  "201503_geo_COG.tif",
+  "201603_geo_COG.tif",
+  "201609_geo_COG.tif"
+];
 
 // ------------------------------
 // Rough DFW bounding box and center
@@ -70,39 +79,60 @@ const osm = L.tileLayer(
 ).addTo(map);
 
 // ------------------------------
-// TiTiler COG tile layer
+// Add COG layers and show the last one by default
 // ------------------------------
-const cogLayer = L.tileLayer(
-  `${titiler}/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png?url=${encodedCogUrl}`,
-  {
-    tileSize: 256,
-    maxZoom: 22,
-    noWrap: true,
-    errorTileUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP8z8BQDwAD3gG7miRCNQAAAABJRU5ErkJggg==" // 1px transparent PNG
-  }
-).addTo(map);
+const cogLayers = {};
+let lastLayer = null;
+
+cogFiles.forEach(filename => {
+  const encodedCogUrl = buildEncodedCogUrl(filename);
+
+  // .tit typo correction: treat .tit as .tif
+  const displayName = filename.replace(/\.tit$/, ".tif");
+
+  const layer = L.tileLayer(
+    `${titiler}/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png?url=${encodedCogUrl}`,
+    {
+      tileSize: 256,
+      maxZoom: 22,
+      noWrap: true,
+      errorTileUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP8z8BQDwAD3gG7miRCNQAAAABJRU5ErkJggg=="
+    }
+  );
+  cogLayers["COG " + displayName] = layer;
+  lastLayer = layer;
+});
+
+// Add the last one by default (201609_geo_COG.tif)
+if (lastLayer) {
+  lastLayer.addTo(map);
+}
 
 // Layer control
-L.control.layers({ OSM: osm }, { ["COG " + filename]: cogLayer }).addTo(map);
+L.control.layers({ OSM: osm }, cogLayers).addTo(map);
 
 // ------------------------------
-// Fetch raster metadata and clamp zoom levels
-// ------------------------------
-fetch(`${titiler}/cog/info?url=${encodedCogUrl}`)
-  .then(r => r.json())
-  .then(info => {
-    console.log("COG info:", info);
-    if (typeof info.minzoom === "number" && typeof info.maxzoom === "number") {
-      map.setMinZoom(info.minzoom);
-      map.setMaxZoom(info.maxzoom);
+// Optionally fetch raster metadata for each layer to clamp zoom
+// This example only does so for the visible one (the last by default)
+if (lastLayer) {
+  const lastFile = cogFiles[cogFiles.length - 1];
+  const encodedCogUrl = buildEncodedCogUrl(lastFile);
+  fetch(`${titiler}/cog/info?url=${encodedCogUrl}`)
+    .then(r => r.json())
+    .then(info => {
+      console.log("COG info:", info);
+      if (typeof info.minzoom === "number" && typeof info.maxzoom === "number") {
+        map.setMinZoom(info.minzoom);
+        map.setMaxZoom(info.maxzoom);
 
-      const currentZoom = map.getZoom();
-      if (currentZoom < info.minzoom || currentZoom > info.maxzoom) {
-        map.setZoom(info.minzoom + 1);
+        const currentZoom = map.getZoom();
+        if (currentZoom < info.minzoom || currentZoom > info.maxzoom) {
+          map.setZoom(info.minzoom + 1);
+        }
       }
-    }
-  })
-  .catch(err => console.error("cog/info error:", err));
+    })
+    .catch(err => console.error("cog/info error:", err));
+}
 
 </script>
 </body>
