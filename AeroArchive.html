@@ -1,3 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>DFW Sectionals – Layer Viewer</title>
+
+  <!-- Leaflet core -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+  <style>
+    html, body { height: 100%; margin: 0; }
+    #map { height: 100%; }
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <script>
 // ------------------------------
 // TiTiler base URL
@@ -5,7 +26,7 @@
 const titiler = "https://titiler-production.up.railway.app";
 
 // ------------------------------
-// Editions: filenames & labels
+// Your COG list
 // ------------------------------
 const editions = [
   { filename: "201109N_geo_COG.tif", label: "2011 N" },
@@ -13,84 +34,30 @@ const editions = [
   { filename: "201209N_geo_COG.tif", label: "2012 N" },
   { filename: "201209S_geo_COG.tif", label: "2012 S" },
   { filename: "201309N_geo_COG.tif", label: "2013 N" },
-  { filename: "201309S_geo_COG.tif", label: "2013 S" }, // make sure this really is .tif
+  { filename: "201309S_geo_COG.tif", label: "2013 S" },
   { filename: "201403_geo_COG.tif", label: "2014" },
   { filename: "201503_geo_COG.tif", label: "2015" },
-  { filename: "201603_geo_COG.tif", label: "2016-03" },
-  { filename: "201609_geo_COG.tif", label: "2016-09" }
+  { filename: "201603_geo_COG.tif", label: "2016 Mar" },
+  { filename: "201609_geo_COG.tif", label: "2016 Sep" }
 ];
 
 // ------------------------------
-// Build aeromap.io encoded URL
+// Helper: encode aeromap.io URL
 // ------------------------------
 function buildEncodedCogUrl(filename) {
-  const url = `https://aeromap.io/${filename}`;
-  return encodeURIComponent(url);
+  return encodeURIComponent(`https://aeromap.io/${filename}`);
 }
 
 // ------------------------------
-// Derive a date from filename: YYYYMM -> YYYY-MM-01T00:00:00Z
-// ------------------------------
-function dateFromFilename(filename) {
-  const match = filename.match(/^(\d{4})(\d{2})/);
-  if (!match) return null;
-  const year = match[1];
-  const month = match[2];
-  return `${year}-${month}-01T00:00:00Z`;
-}
-
-const timeStrings = editions.map(e => dateFromFilename(e.filename));
-const timeMs = timeStrings.map(t => new Date(t).getTime());
-
-// ------------------------------
-// Create the TimeDimension object
-// ------------------------------
-const timeDimension = new L.TimeDimension({
-  times: timeStrings.join(','),
-  currentTime: timeMs[0]
-});
-
-console.log("L.TimeDimension is", typeof L.TimeDimension);
-
-// ------------------------------
-// Rough DFW bounding box and center (for initial view)
-// ------------------------------
-const dfwBounds = L.latLngBounds(
-  [32.3, -98.0],  // SW
-  [33.3, -96.5]   // NE
-);
-const dfwCenter = dfwBounds.getCenter();
-
-// ------------------------------
-// Map with TimeDimension
+// Build Leaflet map
 // ------------------------------
 const map = L.map("map", {
-  worldCopyJump: false,
-  timeDimension: timeDimension,
-  timeDimensionControl: false
+  center: [32.9, -97.3], // DFWish
+  zoom: 10,
+  worldCopyJump: false
 });
-map.setView(dfwCenter, 11);
 
-// ------------------------------
-// TimeDimension control (year-only display)
-// ------------------------------
-const timeDimensionControl = new L.Control.TimeDimension({
-  position: "bottomleft",
-  playerOptions: {
-    transitionTime: 1000,
-    loop: true,
-    startOver: true
-  }
-});
-timeDimensionControl.addTo(map);
-
-timeDimensionControl._getDisplayDateFormat = function(date) {
-  return date.getUTCFullYear().toString();
-};
-
-// ------------------------------
-// OSM basemap
-// ------------------------------
+// Base layer
 const osm = L.tileLayer(
   "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
   {
@@ -100,56 +67,39 @@ const osm = L.tileLayer(
 ).addTo(map);
 
 // ------------------------------
-// SINGLE COG tile layer – we just swap URL on time change
+// Create all COG layers
 // ------------------------------
-let currentIndex = 0;
-let currentEncodedUrl = buildEncodedCogUrl(editions[currentIndex].filename);
+const overlayLayers = {};
 
-function makeCogUrl(encoded) {
-  return `${titiler}/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png?url=${encoded}`;
-}
+editions.forEach((e, i) => {
+  const encoded = buildEncodedCogUrl(e.filename);
+  const layerUrl =
+    `${titiler}/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png?url=${encoded}`;
 
-const cogLayer = L.tileLayer(makeCogUrl(currentEncodedUrl), {
-  tileSize: 256,
-  maxZoom: 22,
-  noWrap: true,
-  keepBuffer: 1,       // request fewer offscreen tiles
-  updateWhenIdle: true // don't spam while panning
-}).addTo(map);
+  const layer = L.tileLayer(layerUrl, {
+    tileSize: 256,
+    maxZoom: 22,
+    noWrap: true,
+    opacity: 1
+  });
 
-// ------------------------------
-// Time change handler – swap COG URL
-// ------------------------------
-timeDimension.on("timechange", function(e) {
-  const currentTime = e.time;
-  const idx = timeMs.indexOf(currentTime);
-  if (idx === -1 || idx === currentIndex) return;
+  // Only turn on the FIRST one
+  if (i === 0) {
+    layer.addTo(map);
+  }
 
-  currentIndex = idx;
-  currentEncodedUrl = buildEncodedCogUrl(editions[currentIndex].filename);
-
-  console.log("Switching to edition:", editions[currentIndex].filename);
-  cogLayer.setUrl(makeCogUrl(currentEncodedUrl));
+  overlayLayers[e.label] = layer;
 });
 
 // ------------------------------
-// Optional: clamp zoom based on first COG info
+// Layer control
 // ------------------------------
-const firstEncoded = buildEncodedCogUrl(editions[0].filename);
+L.control.layers(
+  { "OpenStreetMap": osm },
+  overlayLayers,
+  { collapsed: false }
+).addTo(map);
 
-fetch(`${titiler}/cog/info?url=${firstEncoded}`)
-  .then(r => r.json())
-  .then(info => {
-    console.log("First COG info:", info);
-    if (typeof info.minzoom === "number" && typeof info.maxzoom === "number") {
-      map.setMinZoom(info.minzoom);
-      map.setMaxZoom(info.maxzoom);
-
-      const currentZoom = map.getZoom();
-      if (currentZoom < info.minzoom || currentZoom > info.maxzoom) {
-        map.setZoom(info.minzoom + 1);
-      }
-    }
-  })
-  .catch(err => console.error("cog/info error:", err));
 </script>
+</body>
+</html>
