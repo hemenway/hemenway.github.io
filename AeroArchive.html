@@ -8,10 +8,10 @@
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
   />
-  <!-- TimeDimension CSS -->
+  <!-- TimeDimension CSS (working URL) -->
   <link
     rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/leaflet-timedimension/1.1.0/leaflet.timedimension.control.min.css"
+    href="https://cdn.jsdelivr.net/npm/leaflet-timedimension@1.1.0/dist/leaflet.timedimension.control.min.css"
   />
 
   <style>
@@ -24,8 +24,8 @@
 <div id="map"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<!-- TimeDimension JS -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-timedimension/1.1.0/leaflet.timedimension.min.js"></script>
+<!-- TimeDimension JS (working URL) -->
+<script src="https://cdn.jsdelivr.net/npm/leaflet-timedimension@1.1.0/dist/leaflet.timedimension.min.js"></script>
 
 <script>
 // ------------------------------
@@ -35,7 +35,6 @@ const titiler = "https://titiler-production.up.railway.app";
 
 // ------------------------------
 // Editions: filenames & labels
-// (filenames live at https://aeromap.io/{filename})
 // ------------------------------
 const editions = [
   { filename: "201109N_geo_COG.tif", label: "2011 N" },
@@ -43,7 +42,7 @@ const editions = [
   { filename: "201209N_geo_COG.tif", label: "2012 N" },
   { filename: "201209S_geo_COG.tif", label: "2012 S" },
   { filename: "201309N_geo_COG.tif", label: "2013 N" },
-  { filename: "201309S_geo_COG.tif", label: "2013 S" }, // assumed .tif
+  { filename: "201309S_geo_COG.tif", label: "2013 S" }, // assuming .tif not .tit
   { filename: "201403_geo_COG.tif", label: "2014" },
   { filename: "201503_geo_COG.tif", label: "2015" },
   { filename: "201603_geo_COG.tif", label: "2016-03" },
@@ -60,8 +59,6 @@ function buildEncodedCogUrl(filename) {
 
 // ------------------------------
 // Derive a date from filename: YYYYMM -> YYYY-MM-01T00:00:00Z
-// These dates are just for TimeDimension; you said the *year*
-// is what matters visually, which we'll reflect on the slider label.
 // ------------------------------
 function dateFromFilename(filename) {
   const match = filename.match(/^(\d{4})(\d{2})/);
@@ -78,8 +75,8 @@ const timeMs = timeStrings.map(t => new Date(t).getTime());
 // Create the TimeDimension object
 // ------------------------------
 const timeDimension = new L.TimeDimension({
-  times: timeStrings.join(','),                 // discrete times from filenames
-  currentTime: timeMs[0]                        // start at first
+  times: timeStrings.join(','),
+  currentTime: timeMs[0]
 });
 
 // ------------------------------
@@ -96,13 +93,14 @@ const dfwCenter = dfwBounds.getCenter();
 // ------------------------------
 const map = L.map("map", {
   worldCopyJump: false,
-  timeDimension: timeDimension
+  timeDimension: timeDimension,
+  timeDimensionControl: false // we'll add control manually
 });
 map.setView(dfwCenter, 11);
 
 // ------------------------------
 // TimeDimension control (slider, play, loop)
-// Only show the YEAR in the label.
+// We'll override its display function to show only the year.
 // ------------------------------
 const timeDimensionControl = new L.Control.TimeDimension({
   position: "bottomleft",
@@ -115,10 +113,16 @@ const timeDimensionControl = new L.Control.TimeDimension({
 timeDimensionControl.addTo(map);
 
 // Override display function to show only the year
-timeDimensionControl._getDisplayDate = function(date) {
-  // date is a JS Date
-  return date.getUTCFullYear();
+timeDimensionControl._getDisplayDateFormat = function(date) {
+  // TimeDimension newer versions use this; fall back just in case
+  return date.getUTCFullYear().toString();
 };
+if (!timeDimensionControl._getDisplayDate) {
+  // safety: some builds use _getDisplayDate
+  timeDimensionControl._getDisplayDate = function(date) {
+    return date.getUTCFullYear().toString();
+  };
+}
 
 // ------------------------------
 // OSM basemap
@@ -152,8 +156,7 @@ const cogLayers = editions.map(e => buildCogLayer(e.filename));
 cogLayers[0].addTo(map);
 
 // ------------------------------
-// Time change handler:
-// show only the COG that matches the current time step
+// Time change handler: show only the COG matching the current time
 // ------------------------------
 timeDimension.on("timechange", function(e) {
   const currentTime = e.time;
