@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>TiTiler + R2 COG Test (Auto Zoom to COG)</title>
+    <title>TiTiler + R2 COG Test – DFW Focus</title>
 
     <!-- Leaflet CSS -->
     <link
@@ -35,74 +35,63 @@
     ></script>
 
     <script>
-      // Encoded COG URL (from your R2 bucket)
+      const encodedCogUrl =
+        "https%3A%2F%2Fpub-099103561dfc47f8935d399c2cfb9380.r2.dev%2F201309S_geo_COG.tif";
+      const titilerBase = "https://titiler-production.up.railway.app";
 
-const encodedCogUrl =
-  "https%3A%2F%2Fpub-099103561dfc47f8935d399c2cfb9380.r2.dev%2F201309S_geo_COG.tif";
-const titilerBase = "https://titiler-production.up.railway.app";
+      // Rough DFW bounding box (tweak if needed)
+      // [south, west], [north, east]
+      const dfwBounds = L.latLngBounds(
+        [32.3, -98.0], // SW
+        [33.3, -96.5]  // NE
+      );
 
-const map = L.map("map");  // no setView yet
+      // Create map with DFW view and reasonable zoom limits
+      const map = L.map("map", {
+        minZoom: 9,
+        maxZoom: 18,
+        maxBounds: dfwBounds.pad(0.5), // don't let user pan too far away
+        worldCopyJump: false
+      });
 
-// OSM + COG layer like you already have...
-// ...
-
-// After layers are defined, fetch COG info and zoom to it:
-fetch(`${titilerBase}/cog/info?url=${encodedCogUrl}`)
-  .then((r) => r.json())
-  .then((info) => {
-    const [minX, minY, maxX, maxY] = info.bounds; // lon/lat
-    const bounds = [
-      [minY, minX], // SW
-      [maxY, maxX], // NE
-    ];
-    map.fitBounds(bounds);
-
-    if (typeof info.minzoom === "number" && typeof info.maxzoom === "number") {
-      map.setMinZoom(info.minzoom);
-      map.setMaxZoom(info.maxzoom);
-    }
-  });
+      map.fitBounds(dfwBounds); // start focused on DFW
 
       // OSM basemap
       const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 22,
-        attribution: "&copy; OpenStreetMap contributors",
+        maxZoom: 19,
+        noWrap: true,
+        attribution: "&copy; OpenStreetMap contributors"
       }).addTo(map);
 
-      // COG tile layer via TiTiler (note WebMercatorQuad in the path)
+      // TiTiler COG tiles (note WebMercatorQuad in the path)
       const cogLayer = L.tileLayer(
         `${titilerBase}/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png?url=${encodedCogUrl}`,
         {
           tileSize: 256,
-          maxZoom: 22,
-          attribution: "&copy; Historical Aerials",
+          minZoom: 9,
+          maxZoom: 18,
+          noWrap: true,
+          attribution: "&copy; Historical Aerials"
         }
       ).addTo(map);
 
       // Layer control
       L.control.layers({ OSM: osm }, { "2013 Aerial": cogLayer }).addTo(map);
 
-      // Fetch COG info to auto-zoom to its bounds
+      // OPTIONAL: still read COG info, but just to maybe tighten zoom
       fetch(`${titilerBase}/cog/info?url=${encodedCogUrl}`)
         .then((res) => res.json())
         .then((info) => {
           console.log("COG info:", info);
-          if (info && info.bounds) {
-            // info.bounds = [minX, minY, maxX, maxY] in lon/lat
-            const [minX, minY, maxX, maxY] = info.bounds;
-            const bounds = [
-              [minY, minX], // [south, west]
-              [maxY, maxX], // [north, east]
-            ];
-            map.fitBounds(bounds);
-
-            // If TiTiler returns minzoom/maxzoom, you *could* use them:
-            if (typeof info.minzoom === "number" && typeof info.maxzoom === "number") {
-              cogLayer.setZIndex(10);
-              map.setMinZoom(info.minzoom);
-              map.setMaxZoom(info.maxzoom);
-            }
+          // If TiTiler gives us min/max zoom, we can clamp to that
+          if (typeof info.minzoom === "number" && typeof info.maxzoom === "number") {
+            const minZ = Math.max(9, info.minzoom);
+            const maxZ = Math.min(18, info.maxzoom);
+            map.setMinZoom(minZ);
+            map.setMaxZoom(maxZ);
           }
+          // We deliberately DO NOT call fitBounds(info.bounds)
+          // because you want it focused just on DFW, not the whole raster extent.
         })
         .catch((err) => {
           console.error("Error fetching COG info:", err);
