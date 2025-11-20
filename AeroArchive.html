@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>TiTiler + R2 COG Test – DFW Focus</title>
+    <title>DFW TiTiler Test</title>
 
     <!-- Leaflet CSS -->
     <link
@@ -35,18 +35,19 @@
     ></script>
 
     <script>
+      // TiTiler + COG
+      const titilerBase = "https://titiler-production.up.railway.app";
       const encodedCogUrl =
         "https%3A%2F%2Fpub-099103561dfc47f8935d399c2cfb9380.r2.dev%2F201309S_geo_COG.tif";
-      const titilerBase = "https://titiler-production.up.railway.app";
 
-      // Rough DFW bounding box (tweak if needed)
+      // Hard-coded DFW bounding box (tweak if needed)
       // [south, west], [north, east]
       const dfwBounds = L.latLngBounds(
         [32.3, -98.0], // SW
         [33.3, -96.5]  // NE
       );
 
-      // Create map with DFW view and reasonable zoom limits
+      // Create map focused on DFW, with limited zoom + panning
       const map = L.map("map", {
         minZoom: 9,
         maxZoom: 18,
@@ -54,16 +55,19 @@
         worldCopyJump: false
       });
 
-      map.fitBounds(dfwBounds); // start focused on DFW
+      map.fitBounds(dfwBounds); // THIS is the only thing setting the view
 
       // OSM basemap
-      const osm = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom: 19,
-        noWrap: true,
-        attribution: "&copy; OpenStreetMap contributors"
-      }).addTo(map);
+      const osm = L.tileLayer(
+        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        {
+          maxZoom: 19,
+          noWrap: true,
+          attribution: "&copy; OpenStreetMap contributors"
+        }
+      ).addTo(map);
 
-      // TiTiler COG tiles (note WebMercatorQuad in the path)
+      // COG tile layer via TiTiler (note WebMercatorQuad)
       const cogLayer = L.tileLayer(
         `${titilerBase}/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png?url=${encodedCogUrl}`,
         {
@@ -77,25 +81,6 @@
 
       // Layer control
       L.control.layers({ OSM: osm }, { "2013 Aerial": cogLayer }).addTo(map);
-
-      // OPTIONAL: still read COG info, but just to maybe tighten zoom
-      fetch(`${titilerBase}/cog/info?url=${encodedCogUrl}`)
-        .then((res) => res.json())
-        .then((info) => {
-          console.log("COG info:", info);
-          // If TiTiler gives us min/max zoom, we can clamp to that
-          if (typeof info.minzoom === "number" && typeof info.maxzoom === "number") {
-            const minZ = Math.max(9, info.minzoom);
-            const maxZ = Math.min(18, info.maxzoom);
-            map.setMinZoom(minZ);
-            map.setMaxZoom(maxZ);
-          }
-          // We deliberately DO NOT call fitBounds(info.bounds)
-          // because you want it focused just on DFW, not the whole raster extent.
-        })
-        .catch((err) => {
-          console.error("Error fetching COG info:", err);
-        });
     </script>
   </body>
 </html>
