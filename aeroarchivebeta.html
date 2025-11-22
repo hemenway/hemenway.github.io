@@ -1,29 +1,157 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>COG Test</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/georaster/dist/georaster.browserify.min.js"></script>
-  <script src="https://unpkg.com/georaster-layer-for-leaflet/dist/georaster-layer-for-leaflet.min.js"></script>
-  <style>html,body,#map{height:100%;margin:0}</style>
+<meta charset="utf-8" />
+<title>COG Debug + Render Test</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- Option A: leaflet-geotiff-2 + plotty renderer (great for 16-bit rasters) -->
+<script src="https://unpkg.com/plotty@0.5.0/build/plotty.min.js"></script>
+<script src="https://unpkg.com/leaflet-geotiff-2/dist/leaflet-geotiff-2.min.js"></script>
+<script src="https://unpkg.com/leaflet-geotiff-2/dist/leaflet-geotiff-plotty.min.js"></script>
+
+<!-- Option B: georaster + georaster-layer-for-leaflet -->
+<script src="https://unpkg.com/georaster/dist/georaster.browserify.min.js"></script>
+<script src="https://unpkg.com/georaster-layer-for-leaflet/dist/georaster-layer-for-leaflet.min.js"></script>
+
+<style>
+  html, body { height: 100%; margin: 0; }
+  #panels { display: grid; grid-template-columns: 320px 1fr; height: 100%; }
+  #debug {
+    padding: 12px; overflow: auto; border-right: 1px solid #ddd; font: 12px/1.4 system-ui, sans-serif;
+  }
+  #maps { display: grid; grid-template-rows: 1fr 1fr; height: 100%; }
+  #mapA, #mapB { width: 100%; height: 100%; }
+  h3 { margin: 12px 0 6px; }
+  code, pre { background: #f7f7f7; padding: 2px 4px; border-radius: 4px; }
+  .ok { color: #087443; }
+  .bad { color: #b00020; }
+</style>
 </head>
 <body>
-<div id="map"></div>
+<div id="panels">
+  <div id="debug">
+    <h3>Config</h3>
+    <div>URL: <code id="u"></code></div>
+    <div>Origin: <code id="o"></code></div>
+
+    <h3>Header checks</h3>
+    <div id="preflight">Preflight: <em>pending…</em></div>
+    <div id="range">Range GET: <em>pending…</em></div>
+
+    <h3>Response headers</h3>
+    <pre id="hdrs">(none yet)</pre>
+
+    <h3>Notes</h3>
+    <ul>
+      <li>Expect <code>Access-Control-Allow-Origin: *</code> (or your origin).</li>
+      <li>Expect <code>Accept-Ranges: bytes</code> and 206 with <code>Content-Range</code> when requesting a byte range.</li>
+      <li>If Map A shows but Map B is blank, it’s likely a value scaling issue (16-bit data).</li>
+    </ul>
+  </div>
+  <div id="maps">
+    <div id="mapA"></div>
+    <div id="mapB"></div>
+  </div>
+</div>
+
 <script>
 (async () => {
-  const url = "https://aeromap.io/201109S_geo_COG.tif"; // direct R2 custom domain
-  const map = L.map("map").setView([0,0], 2);
-  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
-  const ab = await (await fetch(url, {mode:"cors"})).arrayBuffer();
-  const georaster = await parseGeoraster(ab);
-  const layer = new GeoRasterLayer({
-    georaster,
-    resolution: 128,
-    pixelValuesToColorFn: v => v && v[0]!=null ? `rgb(${Math.max(0,Math.min(255,v[0]))},${Math.max(0,Math.min(255,v[0]))},${Math.max(0,Math.min(255,v[0]))})` : null
-  }).addTo(map);
-  map.fitBounds(layer.getBounds());
+  const url = "https://aeromap.io/201109S_geo_COG.tif"; // direct R2 custom domain URL
+  document.getElementById("u").textContent = url;
+  document.getElementById("o").textContent = location.origin;
+
+  // ---- Header diagnostics
+  try {
+    const pre = await fetch(url, {
+      method: "OPTIONS",
+      mode: "cors",
+      headers: {
+        "Access-Control-Request-Method": "GET",
+        "Access-Control-Request-Headers": "range"
+      }
+    });
+    document.getElementById("preflight").innerHTML =
+      `Preflight: <span class="${pre.ok ? "ok" : "bad"}">${pre.status} ${pre.statusText}</span>`;
+  } catch (e) {
+    document.getElementById("preflight").innerHTML = `Preflight: <span class="bad">failed (${e})</span>`;
+  }
+
+  try {
+    const r = await fetch(url, { mode: "cors", headers: { Range: "bytes=0-1023" } });
+    const h = [...r.headers.entries()].map(([k,v]) => `${k}: ${v}`).join("\n");
+    document.getElementById("hdrs").textContent = h || "(no headers)";
+    const okRange = (r.status === 206) &&
+                    (r.headers.get("accept-ranges") === "bytes") &&
+                    !!r.headers.get("content-range");
+    document.getElementById("range").innerHTML =
+      `Range GET: <span class="${okRange ? "ok" : "bad"}">${r.status} ${r.statusText}</span>`;
+  } catch (e) {
+    document.getElementById("range").innerHTML = `Range GET: <span class="bad">failed (${e})</span>`;
+  }
+
+  // ---- Base maps
+  const mapA = L.map("mapA").setView([0,0], 2);
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(mapA);
+  const mapB = L.map("mapB").setView([0,0], 2);
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(mapB);
+
+  // ---- Option A: leaflet-geotiff-2 (auto stretch with Plotty)
+  try {
+    const lt = new L.LeafletGeotiff(url, {
+      renderer: new L.LeafletGeotiff.Plotty({
+        colorScale: "greys",
+        // displayMin/Max: let the lib estimate; you can set numbers if needed
+        clampLow: false,
+        clampHigh: false
+      }),
+      band: 0
+    });
+    lt.on("load", () => { try { mapA.fitBounds(lt.getBounds()); } catch {} });
+    lt.addTo(mapA);
+  } catch (e) {
+    console.error("leaflet-geotiff load error:", e);
+  }
+
+  // ---- Option B: georaster-layer-for-leaflet with auto min/max
+  try {
+    const resp = await fetch(url, { mode: "cors" });
+    if (!resp.ok) throw new Error(`GET failed: ${resp.status} ${resp.statusText}`);
+    const ab = await resp.arrayBuffer();
+    const georaster = await parseGeoraster(ab);
+
+    // Try to pull min/max from metadata; otherwise set a robust default window
+    const minMeta = (georaster.mins && georaster.mins[0] != null) ? georaster.mins[0] : undefined;
+    const maxMeta = (georaster.maxs && georaster.maxs[0] != null) ? georaster.maxs[0] : undefined;
+    // Fallback domain if missing (tweak if your data range is known)
+    const domain = [
+      (minMeta != null) ? minMeta : 0,
+      (maxMeta != null) ? maxMeta : 10000
+    ];
+
+    const linear = (v, a, b) => {
+      if (v == null || isNaN(v)) return null;
+      if (b === a) return 0;
+      const t = Math.max(0, Math.min(1, (v - a) / (b - a)));
+      return Math.round(t * 255);
+    };
+
+    const layer = new GeoRasterLayer({
+      georaster,
+      resolution: 128,
+      pixelValuesToColorFn: values => {
+        const v = values[0];
+        const g = linear(v, domain[0], domain[1]);
+        return g == null ? null : `rgb(${g},${g},${g})`;
+      }
+    });
+    layer.addTo(mapB);
+    mapB.fitBounds(layer.getBounds());
+  } catch (e) {
+    console.error("georaster load error:", e);
+  }
 })();
 </script>
 </body>
