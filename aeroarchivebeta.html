@@ -1,105 +1,49 @@
 <!doctype html>
-<html lang="en">
+<html>
 <head>
   <meta charset="utf-8" />
   <title>Leaflet + GeoRasterLayer (COG)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-  <!-- Leaflet CSS -->
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-p4NxAoJBhIINUNPo0wM5rCj8p2R3I1p2u1rL1F1u9yg="
-    crossorigin=""
-  />
-
-  <style>
-    html, body, #map { height: 100%; margin: 0; }
-    .info {
-      position: absolute; top: 10px; left: 10px;
-      background: white; padding: 8px 10px; border-radius: 6px;
-      box-shadow: 0 2px 8px rgba(0,0,0,.15); font: 14px/1.2 system-ui, sans-serif;
-    }
-  </style>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>html,body,#map{height:100%;margin:0}</style>
 </head>
 <body>
   <div id="map"></div>
-  <div class="info" id="info">loading…</div>
 
-  <!-- Leaflet JS -->
-  <script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-    crossorigin=""
-  ></script>
-
-  <!-- Optional: proj4 + proj4leaflet (helps if your COG CRS ≠ map CRS) -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/proj4@2.11.0/dist/proj4.js"></script>
-  <script src="https://unpkg.com/proj4leaflet@1.0.2/src/proj4leaflet.js"></script>
-
-  <!-- georaster + georaster-layer-for-leaflet -->
+  <script src="https://unpkg.com/proj4leaflet@1.0.2/dist/proj4leaflet.js"></script>
   <script src="https://unpkg.com/georaster/dist/georaster.bundle.min.js"></script>
   <script src="https://unpkg.com/georaster-layer-for-leaflet/dist/georaster-layer-for-leaflet.min.js"></script>
 
   <script>
-    const url = "https://aeromap.io/201209N_geo_COG.tif";
+  const url = "https://aeromap.io/201209N_geo_COG.tif";
 
-    // Base map (OSM)
-    const map = L.map("map", {
-      preferCanvas: true,
-      zoomSnap: 0.25,
-    }).setView([20, 0], 2);
+  const map = L.map("map").setView([20,0], 2);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: "&copy; OpenStreetMap contributors", maxZoom: 19
+  }).addTo(map);
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: "&copy; OpenStreetMap contributors"
+  parseGeoraster(url).then(georaster => {
+    console.log("projection from COG:", georaster.projection);
+
+    // If projection is known EPSG (e.g., "EPSG:32616") but proj4 doesn't know it yet, define it here:
+    // Example only — replace with your CRS if needed
+    // proj4.defs("EPSG:32616","+proj=utm +zone=16 +datum=WGS84 +units=m +no_defs +type=crs");
+
+    const layer = new GeoRasterLayer({
+      georaster,
+      opacity: 0.85,
+      resolution: 256
     }).addTo(map);
 
-    const infoEl = document.getElementById("info");
-
-    // Load the COG via georaster (does HTTP range requests)
-    parseGeoraster(url).then(georaster => {
-      // If single-band, you can colorize. For now, default rendering is fine.
-      // To force grayscale, uncomment this:
-      /*
-      const mins = georaster.mins[0], maxs = georaster.maxs[0];
-      const span = maxs - mins || 1;
-      const pixelValuesToColorFn = values => {
-        const v = (values[0] - mins) / span;
-        const g = Math.max(0, Math.min(255, Math.round(v * 255)));
-        return `rgb(${g},${g},${g})`;
-      };
-      */
-
-      const layer = new GeoRasterLayer({
-        georaster,
-        // pixelValuesToColorFn, // <-- uncomment if you enable the grayscale above
-        opacity: 0.85,
-        resolution: 256 // larger = faster render, smaller = sharper (but heavier)
-      });
-
-      layer.addTo(map);
-
-      // Fit to raster bounds when it’s ready
-      layer.once("load", () => {
-        try {
-          const b = layer.getBounds();
-          if (b && b.isValid()) map.fitBounds(b, { padding: [20, 20] });
-        } catch (_) {}
-        infoEl.textContent = `Bands: ${georaster.numberOfRasters} • Pixel Size: ${georaster.pixelWidth.toFixed(3)} × ${georaster.pixelHeight.toFixed(3)} • CRS: ${georaster.projection || "unknown"}`;
-      });
-
-      // Simple click inspector: shows map lat/lng & current zoom
-      map.on("click", (e) => {
-        L.popup()
-          .setLatLng(e.latlng)
-          .setContent(`Lat: ${e.latlng.lat.toFixed(5)}, Lng: ${e.latlng.lng.toFixed(5)}<br>Zoom: ${map.getZoom().toFixed(2)}`)
-          .openOn(map);
-      });
-    }).catch(err => {
-      console.error(err);
-      infoEl.textContent = "Error loading raster. See console.";
+    layer.once("load", () => {
+      try {
+        const b = layer.getBounds();
+        if (b && b.isValid()) map.fitBounds(b, {padding:[20,20]});
+      } catch(e) { console.warn(e); }
     });
+  }).catch(err => console.error("Raster load error:", err));
   </script>
 </body>
 </html>
