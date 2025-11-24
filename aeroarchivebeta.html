@@ -35,7 +35,7 @@
         setTimeout(function() {
           // if didn't pass in a url, redirect to planet example
           const parser = new URL(window.location);
-          parser.searchParams.set("url", "https://storage.googleapis.com/pdd-stac/disasters/hurricane-harvey/0831/20170831_172754_101c_3b_Visual.tif");
+          parser.searchParams.set("url", "https://aeromap.io/201109S_geo_COG.tif");
           window.location = parser.href;
         }, 2 * 1000);
       } else {
