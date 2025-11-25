@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>DFW Sectionals — Timeline + RDNT tiler</title>
+  <title>DFW Sectionals</title>
 
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -110,6 +110,19 @@
       letter-spacing: 0.3px;
       color: #fffd62; /* yellow accent */
     }
+
+    /* Range handles (start/end bounds) */
+    .timeline-range-handle {
+      position: absolute;
+      width: 10px; height: 18px;
+      top: -6px;
+      transform: translate(-5px, 0);
+      background: #ffd54f;
+      border-radius: 3px;
+      box-shadow: 0 0 0 2px rgba(0,0,0,.25);
+      cursor: ew-resize;
+    }
+    .timeline-range-handle.end { background: #ff8a65; }
 
     /* Make default Leaflet controls sit above the map but below timeline */
     .leaflet-control-container { z-index: 500; }
@@ -302,22 +315,26 @@ function clearAllCogLayers() {
 
 /* Add only this frame's layers (keep previous ones) */
 function addFrame(index) {
-  if (index < 0 || index >= frames.length) return;
-  currentIndex = index;
+  currentIndex = Math.max(0, Math.min(frames.length - 1, index));
+  // Clear any existing raster(s) so playback is non-additive
+  clearAllCogLayers();
   const frame = frames[currentIndex];
-  frame.layerKeys.forEach(key => {
-    const layer = cogLayers[key];
-    if (layer && !map.hasLayer(layer)) layer.addTo(map);
-  });
+  if (frame.layerKeys && frame.layerKeys.length) {
+    frame.layerKeys.forEach(key => {
+      const layer = cogLayers[key];
+      if (layer) layer.addTo(map);
+    });
+  }
 }
+
 
 /* Step forward (reset when wrapping) */
 function nextFrame() {
-  const isLast = (currentIndex === frames.length - 1);
-  let next = isLast ? 0 : currentIndex + 1;
-  if (isLast) clearAllCogLayers(); // reset on wrap
+  const atEnd = (currentIndex >= rangeEnd);
+  let next = atEnd ? rangeStart : Math.max(rangeStart, Math.min(rangeEnd, currentIndex + 1));
   addFrame(next);
 }
+
 
 /* Step backward (index only; layers remain additive) */
 function prevFrame() {
@@ -351,6 +368,10 @@ const yearLabelEl = document.getElementById('timelineYear');
 
 const n = frames.length;
 
+/* Playback bounds (inclusive indices) */
+let rangeStart = 0;
+let rangeEnd = n - 1;
+
 /* Create ticks */
 frames.forEach((f, i) => {
   const tick = document.createElement('div');
@@ -366,17 +387,31 @@ frames.forEach((f, i) => {
   });
 });
 
-/* Create draggable handle */
+/* Create draggable handle (current position) */
 const handleEl = document.createElement('div');
 handleEl.className = 'timeline-handle';
 barEl.appendChild(handleEl);
+
+/* Create range handles (start/end) */
+const rangeStartEl = document.createElement('div');
+rangeStartEl.className = 'timeline-range-handle start';
+barEl.appendChild(rangeStartEl);
+
+const rangeEndEl = document.createElement('div');
+rangeEndEl.className = 'timeline-range-handle end';
+barEl.appendChild(rangeEndEl);
 
 /* Helpers for UI sync */
 function updateTimelineFromIndex() {
   const pct = (n === 1) ? 0 : (currentIndex / (n - 1)) * 100;
   handleEl.style.left = pct + '%';
   progressEl.style.width = pct + '%';
-  yearLabelEl.textContent = frames[currentIndex].label;
+  yearLabelEl.textContent = frames[currentIndex].label + `  (range: ${frames[rangeStart].label} – ${frames[rangeEnd].label})`;
+  // range handles
+  const sPct = (rangeStart / (n - 1)) * 100;
+  const ePct = (rangeEnd   / (n - 1)) * 100;
+  rangeStartEl.style.left = sPct + '%';
+  rangeEndEl.style.left   = ePct + '%';
 }
 
 /* Move to exact frame index + update UI */
@@ -384,6 +419,7 @@ function moveToFrame(i) {
   addFrame(i);
   updateTimelineFromIndex();
 }
+
 
 /* Click anywhere on bar to jump */
 barEl.addEventListener('click', (e) => {
@@ -401,7 +437,9 @@ let dragging = false;
 function scrub(clientX) {
   const rect = barEl.getBoundingClientRect();
   const pct = (clientX - rect.left) / rect.width;
-  const i = Math.max(0, Math.min(n - 1, Math.round(pct * (n - 1))));
+  let i = Math.max(0, Math.min(n - 1, Math.round(pct * (n - 1))));
+  // clamp within range when scrubbing current handle
+  i = Math.max(rangeStart, Math.min(rangeEnd, i));
   moveToFrame(i);
 }
 handleEl.addEventListener('mousedown', (e) => {
@@ -412,6 +450,36 @@ handleEl.addEventListener('mousedown', (e) => {
 });
 window.addEventListener('mousemove', (e) => { if (dragging) scrub(e.clientX); });
 window.addEventListener('mouseup',   () => { dragging = false; });
+
+/* Dragging for range start/end handles */
+let draggingRange = null; // 'start' | 'end' | null
+function scrubRange(which, clientX) {
+  const rect = barEl.getBoundingClientRect();
+  const pct = (clientX - rect.left) / rect.width;
+  const idx = Math.max(0, Math.min(n - 1, Math.round(pct * (n - 1))));
+  if (which === 'start') {
+    rangeStart = Math.min(idx, rangeEnd); // cannot exceed end
+    if (currentIndex < rangeStart) moveToFrame(rangeStart);
+  } else if (which === 'end') {
+    rangeEnd = Math.max(idx, rangeStart); // cannot go before start
+    if (currentIndex > rangeEnd) moveToFrame(rangeEnd);
+  }
+  updateTimelineFromIndex();
+}
+[ ['mousedown', 'mousemove', 'mouseup'], ['touchstart','touchmove','touchend'] ].forEach(([down, move, up]) => {
+  const moveHandler = (e) => {
+    if (!draggingRange) return;
+    const clientX = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;
+    scrubRange(draggingRange, clientX);
+    if (e.preventDefault) e.preventDefault();
+  };
+  const upHandler = () => { draggingRange = null; };
+
+  rangeStartEl.addEventListener(down, (e) => { draggingRange = 'start'; stopPlaying(); if (e.preventDefault) e.preventDefault(); });
+  rangeEndEl.addEventListener(down,   (e) => { draggingRange = 'end';   stopPlaying(); if (e.preventDefault) e.preventDefault(); });
+  window.addEventListener(move, moveHandler, { passive: false });
+  window.addEventListener(up,   upHandler);
+});
 handleEl.addEventListener('touchstart', (e) => {
   dragging = true;
   stopPlaying();
