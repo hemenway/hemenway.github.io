@@ -223,16 +223,22 @@ class MapController {
   constructor(mapId) {
     this.map = L.map(mapId, {
       zoomControl: false,
-      fadeAnimation: false, // Disable Leaflet fade, we do it manually
+      fadeAnimation: true, // Enable Leaflet's internal fading
+      zoomAnimation: true,
+      markerZoomAnimation: true,
       worldCopyJump: false
     }).setView(CONFIG.initialView.center, CONFIG.initialView.zoom);
 
+    // Dark Basemap (Permanent background prevents white flashes if everything fails)
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      maxZoom: 20, attribution: '&copy; OpenStreetMap &copy; CARTO'
+      maxZoom: 20, 
+      attribution: '&copy; CARTO',
+      opacity: 1,
+      zIndex: 1 // Keep basemap at the bottom
     }).addTo(this.map);
 
-    this.cache = {}; // Stores TileJSON and Layer objects
-    this.activeLayers = []; // Currently visible Leaflet layers
+    this.cache = {}; 
+    this.activeLayers = []; 
   }
 
   async getLayerData(filename) {
@@ -249,66 +255,96 @@ class MapController {
         minZoom: tileJson.minzoom || 0,
         maxZoom: 22,
         tileSize: 256,
-        opacity: 0, // Start hidden
-        zIndex: 10
+        opacity: 0, // CRITICAL: Start fully invisible
+        zIndex: 10,
+        keepBuffer: 2 // Keep a few tiles around to smooth panning
       });
 
       this.cache[filename] = { layer, bounds: tileJson.bounds };
       return this.cache[filename];
     } catch (e) {
       console.error(`Failed to load ${filename}`, e);
-      Utils.toast(`Error loading ${filename}`);
       return null;
     }
   }
 
-  // Preload specific frame index
   async preloadFrame(index) {
     if (!CONFIG.frames[index]) return;
     const promises = CONFIG.frames[index].files.map(f => this.getLayerData(f));
     await Promise.all(promises);
   }
 
-  // The core logic: Ensure target frame is visible, hide others
+  // Helper: Returns a promise that resolves when the layer has loaded its visible tiles
+  waitForLayer(layer) {
+    return new Promise(resolve => {
+      // If tiles are already loaded or valid, resolve immediately
+      if (!layer._loading) return resolve();
+      
+      // Resolve on load event
+      const loadHandler = () => {
+        layer.off('load', loadHandler);
+        resolve();
+      };
+      
+      layer.on('load', loadHandler);
+      
+      // Fallback: If tiles take too long (> 2s), just show it anyway to prevent hanging
+      setTimeout(() => {
+        layer.off('load', loadHandler);
+        resolve();
+      }, 2000);
+    });
+  }
+
   async showFrame(index) {
     const frame = CONFIG.frames[index];
-    document.getElementById('loader').classList.add('active');
+    const loader = document.getElementById('loader');
+    loader.classList.add('active');
 
-    // 1. Load data for this frame if needed
+    // 1. Fetch metadata/create layers
     const layerDataList = await Promise.all(frame.files.map(f => this.getLayerData(f)));
     
-    // 2. Add new layers to map (hidden initially via opacity:0 in definition)
+    // 2. Add new layers to map (Still Invisible due to opacity: 0)
     const newLayers = [];
     layerDataList.forEach(d => {
       if(d && d.layer) {
-        if(!this.map.hasLayer(d.layer)) d.layer.addTo(this.map);
+        if(!this.map.hasLayer(d.layer)) {
+          d.layer.setOpacity(0); // Ensure it's invisible
+          d.layer.addTo(this.map);
+        }
         newLayers.push(d.layer);
       }
     });
 
-    // 3. Transition: Fade IN new, Fade OUT old
-    // We use a small timeout to allow the browser to render the DOM element before CSS transition
+    // 3. WAIT for tiles to actually download
+    // This is the magic step that stops the flicker
+    await Promise.all(newLayers.map(l => this.waitForLayer(l)));
+
+    // 4. Transition: Reveal New, Hide Old
     requestAnimationFrame(() => {
       newLayers.forEach(l => l.setOpacity(1));
       
-      // Find layers to remove (all currently active layers that are NOT in the new set)
       const toRemove = this.activeLayers.filter(l => !newLayers.includes(l));
+      
+      // Delay removal slightly to allow CSS transition of opacity
       toRemove.forEach(l => {
         l.setOpacity(0);
-        // Remove from DOM after transition to save memory
-        setTimeout(() => { if(this.map.hasLayer(l)) this.map.removeLayer(l); }, 600); 
+        setTimeout(() => { 
+          if(this.map.hasLayer(l) && !newLayers.includes(l)) {
+            this.map.removeLayer(l); 
+          }
+        }, 800); 
       });
 
       this.activeLayers = newLayers;
-      document.getElementById('loader').classList.remove('active');
+      loader.classList.remove('active');
     });
 
-    // 4. Background load next frame for speed
+    // 5. Preload next
     const nextIdx = (index + 1) % CONFIG.frames.length;
     this.preloadFrame(nextIdx);
   }
 }
-
 /**
  * TIMELINE CONTROLLER
  * Handles UI, User Input, and Animation Loop
