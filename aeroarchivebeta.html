@@ -1,69 +1,42 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-  <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.0.3/dist/leaflet.css"/>
-    <style>
-      #map {
-        bottom: 0;
-        left: 0;
-        position: absolute;
-        right: 0;
-        top: 0;
-      }
-    </style>
-  </head>
-  <body>
-    <div id="map"></div>
-    <script src="https://unpkg.com/leaflet@1.0.3/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/proj4"></script>
-    <script src="https://unpkg.com/georaster"></script>
-    <script src="https://unpkg.com/georaster-layer-for-leaflet"></script>
-    <script>
-      // initalize leaflet map
-      var map = L.map('map').setView([0, 0], 5);
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>html,body,#map{height:100%;margin:0}</style>
+</head>
+<body>
+<div id="map"></div>
 
-      // add OpenStreetMap basemap
-      L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png', {
-          attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
-      }).addTo(map);
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+(async () => {
+  const map = L.map('map');
 
-      const url_to_geotiff_file = new URLSearchParams(location.search).get("url");
-      console.log("url_to_geotiff_file:", url_to_geotiff_file);
+  // HTTPS tiles to avoid mixed content
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution:'&copy; OpenStreetMap contributors'
+  }).addTo(map);
 
-      if (!url_to_geotiff_file) {
-        setTimeout(function() {
-          // if didn't pass in a url, redirect to planet example
-          const parser = new URL(window.location);
-          parser.searchParams.set("url", "https://pub-099103561dfc47f8935d399c2cfb9380.r2.dev/201609_geo_COG.tif");
-          window.location = parser.href;
-        }, 2 * 1000);
-      } else {
-        console.log("url_to_geotiff_file:", url_to_geotiff_file);
-        parseGeoraster(url_to_geotiff_file).then(georaster => {
-          console.log("georaster:", georaster);
+  // Your public COG (must be reachable by tiles.rdnt.io)
+  const cogUrl = 'https://aeromap.io/201109S_geo_COG.tif';
 
-          /*
-              GeoRasterLayer is an extension of GridLayer,
-              which means can use GridLayer options like opacity.
+  // Get TileJSON (template + bounds + min/max zoom)
+  const tj = await fetch(
+    'https://tiles.rdnt.io/tiles?url=' + encodeURIComponent(cogUrl) +
+    // optional server-side rendering knobs:
+    '&rgb=1,2,3&linearStretch=true' // or add &nodata=0 if needed
+  ).then(r => r.json());
 
-              Just make sure to include the georaster option!
+  // Add the raster XYZ layer
+  const raster = L.tileLayer(tj.tiles[0], { minZoom:tj.minzoom, maxZoom:tj.maxzoom, crossOrigin:true });
+  raster.addTo(map);
 
-              http://leafletjs.com/reference-1.2.0.html#gridlayer
-          */
-          var layer = new GeoRasterLayer({
-              attribution: "Unknown",
-              georaster,
-              resolution: 128
-          });
-          layer.addTo(map);
-
-          map.fitBounds(layer.getBounds());
-
-        });
-      }
-      
-
-    </script>
-  </body>
+  // Fit to raster bounds
+  const b = tj.bounds; // [w,s,e,n]
+  map.fitBounds([[b[1], b[0]], [b[3], b[2]]]);
+})();
+</script>
+</body>
 </html>
