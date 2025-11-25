@@ -1,79 +1,463 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Leaflet + tiles.rdnt.io (crisp)</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DFW Sectionals</title>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
   <style>
-    html, body, #map { height: 100%; margin: 0; }
+    html, body { height: 100%; margin: 0; }
+    #map { height: 100%; }
+
+    /* --- Timeline UI (Google Earth–style) --- */
+    .timeline-container {
+      position: absolute;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(1100px, 86vw);
+      height: 64px;
+      background: rgba(0,0,0,0.7);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      padding: 10px 18px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.45);
+      color: #fff;
+      z-index: 1000; /* above Leaflet controls */
+      backdrop-filter: blur(2px);
+      user-select: none;
+    }
+
+    .timeline-play {
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      background: #1e90ff;
+      color: #fff;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      margin-right: 16px;
+      font-size: 16px;
+      box-shadow: 0 0 0 2px rgba(255,255,255,0.15) inset;
+    }
+    .timeline-play:active { transform: scale(0.98); }
+
+    .timeline-bar-wrap {
+      position: relative;
+      flex: 1;
+      height: 22px; /* room for ticks */
+      display: flex;
+      align-items: center;
+    }
+    .timeline-bar {
+      position: relative;
+      width: 100%;
+      height: 6px;
+      background: #2a3a46;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+
+    /* Progress (filled) – purely visual */
+    .timeline-progress {
+      position: absolute;
+      height: 100%;
+      left: 0;
+      top: 0;
+      width: 0%;
+      background: linear-gradient(90deg, #4aa3ff, #1e90ff);
+      border-radius: 3px;
+      pointer-events: none;
+    }
+
+    /* Tick marks */
+    .timeline-tick {
+      position: absolute;
+      width: 2px;
+      height: 10px;
+      background: #cfd8dc;
+      top: -2px;
+      transform: translateX(-1px);
+      opacity: 0.9;
+    }
+    .timeline-tick.small { height: 8px; opacity: 0.6; }
+
+    /* Draggable handle */
+    .timeline-handle {
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      background: #1e90ff;
+      border-radius: 999px;
+      top: -4px;
+      transform: translate(-7px, 0);
+      cursor: grab;
+      box-shadow: 0 0 0 2px #fff inset, 0 0 0 2px rgba(30,144,255,0.25);
+    }
+    .timeline-handle:active { cursor: grabbing; }
+
+    .timeline-year-label {
+      min-width: 72px;
+      text-align: right;
+      margin-left: 14px;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      color: #fffd62; /* yellow accent */
+    }
+
+    /* Make default Leaflet controls sit above the map but below timeline */
+    .leaflet-control-container { z-index: 500; }
+
+    /* Tiny helper toast */
+    .toast {
+      position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,.7); color: #fff; padding: 8px 12px; border-radius: 8px;
+      font: 13px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      z-index: 1200; display:none;
+    }
   </style>
 </head>
 <body>
+
 <div id="map"></div>
+<div class="toast" id="toast"></div>
 
+<!-- Timeline overlay -->
+<div class="timeline-container" id="timeline">
+  <div class="timeline-play" id="playBtn" title="Play/Pause">▶</div>
+
+  <div class="timeline-bar-wrap">
+    <div class="timeline-bar" id="timelineBar">
+      <div class="timeline-progress" id="timelineProgress"></div>
+      <!-- ticks + handle injected by JS -->
+    </div>
+  </div>
+
+  <div class="timeline-year-label" id="timelineYear">—</div>
+</div>
+
+<!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <script>
-(async () => {
-  // 1) Your public COG URL
-  const COG_URL = 'https://aeromap.io/201109S_geo_COG.tif'; // <-- replace if you want
+/***************************
+ * Combined version notes
+ * - Leaflet timeline UI from your first file
+ * - RDNT TileJSON tiler (https://tiles.rdnt.io/tiles) from your second file
+ * - Each COG fetched as TileJSON, added as L.tileLayer(tj.tiles[0])
+ * - Frames are additive across years
+ ***************************/
 
-  // 2) Map init + HTTPS basemap to avoid mixed content
-  const map = L.map('map', { zoomControl: true });
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors'
-  }).addTo(map);
+/* ------------------------------
+   RDNT tiler base + options
+--------------------------------*/
+const RDNT_ENDPOINT = 'https://tiles.rdnt.io/tiles';
+const RDNT_QUERY = '&rgb=1,2,3&linearStretch=true'; // add &nodata=0 if needed
 
-  // 3) Build common query params for tiles.rdnt.io
-  //    - rgb=1,2,3 : pick bands (change if needed)
-  //    - linearStretch=true : auto contrast stretch (optional but usually nicer)
-  //    - resampling=lanczos : sharper downsampling when zoomed out
-  const params = new URLSearchParams({
-    url: COG_URL,
-    rgb: '1,2,3',
-    linearStretch: 'true',
-    resampling: 'lanczos'
-    // nodata: '0' // uncomment & set if your data needs it
+/* ------------------------------
+   Helper: encoded aeromap.io URL
+--------------------------------*/
+function buildEncodedCogUrl(filename) {
+  return encodeURIComponent('https://aeromap.io/' + filename);
+}
+
+/* ------------------------------
+   COG files (individual layers)
+--------------------------------*/
+const cogFiles = [
+  '201109N_geo_COG.tif',
+  '201109S_geo_COG.tif',
+  '201209N_geo_COG.tif',
+  '201209S_geo_COG.tif',
+  '201309N_geo_COG.tif',
+  '201309S_geo_COG.tif',
+  '201403_geo_COG.tif',
+  '201503_geo_COG.tif',
+  '201603_geo_COG.tif',
+  '201609_geo_COG.tif'
+];
+
+/* Label map (keep labels equal to filenames for layer keys) */
+const cogLabelsByFile = {};
+for (const f of cogFiles) cogLabelsByFile[f] = f;
+
+/* ------------------------------
+   Initialize map (no fades)
+--------------------------------*/
+const map = L.map('map', {
+  worldCopyJump: false,
+  fadeAnimation: false,
+  zoomAnimation: false
+});
+
+const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom: 22,
+  noWrap: true,
+  attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+/* ------------------------------
+   Dynamically build COG overlay layers via RDNT TileJSON
+--------------------------------*/
+const cogLayers = {};            // label -> L.tileLayer
+const cogTileJSON = {};          // label -> TileJSON (for min/max zoom, bounds)
+let unionBounds = null;          // LatLngBounds of all rasters
+
+async function loadCogAsLayer(filename) {
+  const label = 'COG ' + cogLabelsByFile[filename];
+  if (cogLayers[label]) return { label, layer: cogLayers[label] };
+
+  const encoded = buildEncodedCogUrl(filename);
+  const url = `${RDNT_ENDPOINT}?url=${encoded}${RDNT_QUERY}`;
+
+  const tj = await fetch(url).then(r => {
+    if (!r.ok) throw new Error('RDNT tiler error ' + r.status);
+    return r.json();
   });
 
-  // 4) Try TileJSON first to get bounds/min/max zoom from the server
-  let tileTemplate, minzoom = 0, maxzoom = 22, bounds = null;
-  try {
-    const tj = await fetch('https://tiles.rdnt.io/tiles?' + params.toString()).then(r => r.json());
-    tileTemplate = tj.tiles[0];           // e.g. https://tiles.rdnt.io/tiles/{z}/{x}/{y}?...
-    minzoom = tj.minzoom ?? minzoom;
-    maxzoom = tj.maxzoom ?? maxzoom;
-    if (tj.bounds && tj.bounds.length === 4) bounds = tj.bounds; // [w,s,e,n]
-  } catch (e) {
-    // Fallback: construct the XYZ template directly if TileJSON fetch fails
-    tileTemplate = 'https://tiles.rdnt.io/tiles/{z}/{x}/{y}?' + params.toString();
-    console.warn('TileJSON fetch failed, using direct template:', e);
-  }
+  const tileUrl = tj.tiles && tj.tiles[0];
+  if (!tileUrl) throw new Error('TileJSON missing tiles template');
 
-  // 5) Retina / crispness setup
-  //    - "@2x" path + detectRetina => high-DPI tiles on capable displays
-  //    - tileSize: 512 + zoomOffset: -1 => pull higher-zoom tiles (crisper when zoomed out)
-  //      (This increases per-tile detail; slightly more bandwidth.)
-  const retinaTemplate = tileTemplate.replace('/tiles/', '/tiles/@2x/');
-  const raster = L.tileLayer(retinaTemplate, {
-    minZoom: minzoom,
-    maxZoom: maxzoom,
+  const layer = L.tileLayer(tileUrl, {
+    minZoom: tj.minzoom ?? 0,
+    maxZoom: Math.min(22, tj.maxzoom ?? 22),
     crossOrigin: true,
-    detectRetina: true,
-    tileSize: 512,
-    zoomOffset: -1
-  }).addTo(map);
+    tileSize: 256,
+    noWrap: true,
+    errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP8z8BQDwAD3gG7miRCNQAAAABJRU5ErkJggg=='
+  });
 
-  // 6) Fit to raster bounds if we got them; otherwise pick a sane world view
-  if (bounds) {
-    const [[s, w, n, e]] = [[bounds[1], bounds[0], bounds[3], bounds[2]]];
-    map.fitBounds([[s, w], [n, e]], { padding: [16, 16] });
-  } else {
-    map.setView([0, 0], 2);
+  // Save references
+  cogLayers[label] = layer;
+  cogTileJSON[label] = tj;
+
+  // Expand overall bounds
+  const b = tj.bounds; // [w,s,e,n]
+  if (Array.isArray(b) && b.length === 4) {
+    const llb = L.latLngBounds([ [b[1], b[0]], [b[3], b[2]] ]);
+    unionBounds = unionBounds ? unionBounds.extend(llb) : llb;
   }
 
-  // Optional: log what we actually used
-  console.log('tiles.rdnt.io template:', retinaTemplate);
+  return { label, layer };
+}
+
+/* Preload all COG tile layers (in parallel) so the layer control is ready */
+async function preloadAllCogs() {
+  const results = await Promise.allSettled(cogFiles.map(loadCogAsLayer));
+  const ok = results.filter(r => r.status === 'fulfilled').map(r => r.value);
+  const failed = results.filter(r => r.status === 'rejected');
+  if (failed.length) toast(`${failed.length} layer(s) failed to load. Check COG URLs or RDNT options.`);
+  return ok;
+}
+
+/* Tiny toast helper */
+function toast(msg, ms = 2600) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.display = 'block';
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => (el.style.display = 'none'), ms);
+}
+
+/* ------------------------------
+   Year-grouped frames (additive)
+--------------------------------*/
+const frames = [
+  { label: '2011',    layerKeys: [ 'COG ' + cogLabelsByFile['201109N_geo_COG.tif'],
+                                   'COG ' + cogLabelsByFile['201109S_geo_COG.tif'] ] },
+  { label: '2012',    layerKeys: [ 'COG ' + cogLabelsByFile['201209N_geo_COG.tif'],
+                                   'COG ' + cogLabelsByFile['201209S_geo_COG.tif'] ] },
+  { label: '2013',    layerKeys: [ 'COG ' + cogLabelsByFile['201309N_geo_COG.tif'],
+                                   'COG ' + cogLabelsByFile['201309S_geo_COG.tif'] ] },
+  { label: '2014',    layerKeys: [ 'COG ' + cogLabelsByFile['201403_geo_COG.tif'] ] },
+  { label: '2015',    layerKeys: [ 'COG ' + cogLabelsByFile['201503_geo_COG.tif'] ] },
+  { label: '2016-03', layerKeys: [ 'COG ' + cogLabelsByFile['201603_geo_COG.tif'] ] },
+  { label: '2016-09', layerKeys: [ 'COG ' + cogLabelsByFile['201609_geo_COG.tif'] ] }
+];
+
+/* ------------------------------
+   Additive animation state
+--------------------------------*/
+let currentIndex = 0;         // start at earliest frame
+let isPlaying = false;
+let playTimer = null;
+const frameDuration = 800;    // ms between frames
+
+/* Utilities */
+function clearAllCogLayers() {
+  Object.values(cogLayers).forEach(layer => { if (map.hasLayer(layer)) map.removeLayer(layer); });
+}
+
+/* Add only this frame's layers (keep previous ones) */
+function addFrame(index) {
+  if (index < 0 || index >= frames.length) return;
+  currentIndex = index;
+  const frame = frames[currentIndex];
+  frame.layerKeys.forEach(key => {
+    const layer = cogLayers[key];
+    if (layer && !map.hasLayer(layer)) layer.addTo(map);
+  });
+}
+
+/* Step forward (reset when wrapping) */
+function nextFrame() {
+  const isLast = (currentIndex === frames.length - 1);
+  let next = isLast ? 0 : currentIndex + 1;
+  if (isLast) clearAllCogLayers(); // reset on wrap
+  addFrame(next);
+}
+
+/* Step backward (index only; layers remain additive) */
+function prevFrame() {
+  const prev = (currentIndex - 1 + frames.length) % frames.length;
+  currentIndex = prev;
+}
+
+/* Play/Pause */
+function startPlaying() {
+  if (isPlaying) return;
+  isPlaying = true;
+  playTimer = setInterval(() => {
+    nextFrame();
+    updateTimelineFromIndex();
+  }, frameDuration);
+}
+function stopPlaying() {
+  if (!isPlaying) return;
+  isPlaying = false;
+  clearInterval(playTimer);
+  playTimer = null;
+}
+
+/* ------------------------------
+   Timeline wiring (ticks, handle, drag)
+--------------------------------*/
+const barEl = document.getElementById('timelineBar');
+const progressEl = document.getElementById('timelineProgress');
+const playBtnEl = document.getElementById('playBtn');
+const yearLabelEl = document.getElementById('timelineYear');
+
+const n = frames.length;
+
+/* Create ticks */
+frames.forEach((f, i) => {
+  const tick = document.createElement('div');
+  tick.className = 'timeline-tick' + (i % 2 ? ' small' : '');
+  tick.style.left = (i / (n - 1)) * 100 + '%';
+  tick.title = f.label;
+  barEl.appendChild(tick);
+
+  tick.addEventListener('click', () => {
+    stopPlaying();
+    playBtnEl.textContent = '▶';
+    moveToFrame(i);
+  });
+});
+
+/* Create draggable handle */
+const handleEl = document.createElement('div');
+handleEl.className = 'timeline-handle';
+barEl.appendChild(handleEl);
+
+/* Helpers for UI sync */
+function updateTimelineFromIndex() {
+  const pct = (n === 1) ? 0 : (currentIndex / (n - 1)) * 100;
+  handleEl.style.left = pct + '%';
+  progressEl.style.width = pct + '%';
+  yearLabelEl.textContent = frames[currentIndex].label;
+}
+
+/* Move to exact frame index + update UI */
+function moveToFrame(i) {
+  addFrame(i);
+  updateTimelineFromIndex();
+}
+
+/* Click anywhere on bar to jump */
+barEl.addEventListener('click', (e) => {
+  if (e.target === handleEl) return; // handle drag handles itself
+  const rect = barEl.getBoundingClientRect();
+  const pct = (e.clientX - rect.left) / rect.width;
+  const i = Math.max(0, Math.min(n - 1, Math.round(pct * (n - 1))));
+  stopPlaying();
+  playBtnEl.textContent = '▶';
+  moveToFrame(i);
+});
+
+/* Drag to scrub */
+let dragging = false;
+function scrub(clientX) {
+  const rect = barEl.getBoundingClientRect();
+  const pct = (clientX - rect.left) / rect.width;
+  const i = Math.max(0, Math.min(n - 1, Math.round(pct * (n - 1))));
+  moveToFrame(i);
+}
+handleEl.addEventListener('mousedown', (e) => {
+  dragging = true;
+  stopPlaying();
+  playBtnEl.textContent = '▶';
+  e.preventDefault();
+});
+window.addEventListener('mousemove', (e) => { if (dragging) scrub(e.clientX); });
+window.addEventListener('mouseup',   () => { dragging = false; });
+handleEl.addEventListener('touchstart', (e) => {
+  dragging = true;
+  stopPlaying();
+  playBtnEl.textContent = '▶';
+  e.preventDefault();
+}, { passive: false });
+window.addEventListener('touchmove', (e) => {
+  if (!dragging) return;
+  const touch = e.touches[0];
+  if (touch) scrub(touch.clientX);
+}, { passive: false });
+window.addEventListener('touchend', () => { dragging = false; });
+
+/* Play/Pause button */
+playBtnEl.onclick = () => {
+  if (isPlaying) {
+    stopPlaying();
+    playBtnEl.textContent = '▶';
+  } else {
+    startPlaying();
+    playBtnEl.textContent = '❚❚';
+  }
+};
+
+/* ------------------------------
+   Bootstrap: preload layers, add layer control, fit bounds, show first frame
+--------------------------------*/
+(async function init() {
+  toast('Loading raster layers…');
+  const loaded = await preloadAllCogs();
+
+  // Build overlay control entries (keep order consistent with filenames)
+  const overlays = {};
+  for (const f of cogFiles) {
+    const label = 'COG ' + cogLabelsByFile[f];
+    if (cogLayers[label]) overlays[label] = cogLayers[label];
+  }
+  L.control.layers({ 'OpenStreetMap': osm }, overlays, { collapsed: false }).addTo(map);
+
+  // Fit to union of all raster bounds if available; else default to DFW-ish
+  if (unionBounds) {
+    map.fitBounds(unionBounds);
+  } else {
+    const dfwBounds = L.latLngBounds([32.3, -98.0], [33.3, -96.5]);
+    map.fitBounds(dfwBounds);
+  }
+
+  // Add first frame and sync UI
+  moveToFrame(currentIndex);
+  updateTimelineFromIndex();
+
+  toast('Layers ready. Use timeline or layer control.');
 })();
 </script>
 </body>
