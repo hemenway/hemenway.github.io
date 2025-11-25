@@ -8,22 +8,28 @@
   <style>
     :root {
       --primary: #1e90ff;
-      --bg-glass: rgba(20, 25, 30, 0.85);
+      --bg-glass: rgba(20, 25, 30, 0.9);
       --text-light: #fff;
       --timeline-h: 6px;
     }
 
     html, body { height: 100%; margin: 0; background: #111; font-family: system-ui, -apple-system, sans-serif; overflow: hidden; }
     
-    #map { height: 100%; width: 100%; z-index: 1; }
+    #map { height: 100%; width: 100%; z-index: 1; background: #111; }
+
+    /* --- CRITICAL: Disable Leaflet Internal Animations for Instant Switch --- */
+    .leaflet-fade-anim .leaflet-tile,
+    .leaflet-zoom-anim .leaflet-zoom-animated {
+      transition: none !important;
+    }
 
     /* --- UI Overlay --- */
     .ui-layer {
       position: absolute;
-      bottom: 20px;
+      bottom: 24px;
       left: 50%;
       transform: translateX(-50%);
-      width: min(1000px, 90vw);
+      width: min(1000px, 92vw);
       z-index: 1000;
       display: flex;
       flex-direction: column;
@@ -34,10 +40,10 @@
     /* --- Timeline Container --- */
     .controls-card {
       background: var(--bg-glass);
-      backdrop-filter: blur(8px);
+      backdrop-filter: blur(10px);
       padding: 16px 24px;
       border-radius: 16px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
       display: flex;
       align-items: center;
       gap: 20px;
@@ -59,7 +65,9 @@
       place-items: center;
       transition: transform 0.1s, background 0.2s;
       flex-shrink: 0;
+      padding-left: 4px; /* Optical center for play icon */
     }
+    .btn-play.paused { padding-left: 0; }
     .btn-play:hover { background: #4aa3ff; }
     .btn-play:active { transform: scale(0.95); }
 
@@ -67,7 +75,7 @@
     .timeline-track-wrapper {
       flex: 1;
       position: relative;
-      height: 30px;
+      height: 32px;
       display: flex;
       align-items: center;
       cursor: pointer;
@@ -95,11 +103,13 @@
       position: absolute;
       width: 2px;
       height: 12px;
-      background: rgba(255,255,255,0.5);
+      background: rgba(255,255,255,0.4);
       top: 50%;
       transform: translate(-50%, -50%);
       pointer-events: none;
     }
+    /* Highlight major ticks */
+    .tick.active { background: #fff; height: 16px; opacity: 1; }
 
     .handle {
       position: absolute;
@@ -113,28 +123,28 @@
       cursor: grab;
       transition: transform 0.1s;
     }
-    .handle:active { cursor: grabbing; transform: translate(-50%, -50%) scale(1.2); }
+    .handle:active { cursor: grabbing; transform: translate(-50%, -50%) scale(1.1); }
 
     /* --- Text Info --- */
     .info-panel {
       display: flex;
       flex-direction: column;
       align-items: flex-end;
-      min-width: 100px;
+      min-width: 110px;
       color: var(--text-light);
     }
-    .label-year { font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; }
-    .label-sub { font-size: 11px; opacity: 0.7; margin-top: 4px; }
+    .label-year { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; letter-spacing: -0.5px; }
+    .label-sub { font-size: 11px; opacity: 0.6; margin-top: 5px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;}
 
     /* --- Loading Spinner --- */
     .loader {
       width: 20px; height: 20px;
-      border: 3px solid rgba(255,255,255,0.1);
+      border: 2px solid rgba(255,255,255,0.1);
       border-top-color: var(--primary);
       border-radius: 50%;
-      animation: spin 1s linear infinite;
+      animation: spin 0.8s linear infinite;
       opacity: 0;
-      transition: opacity 0.3s;
+      transition: opacity 0.2s;
     }
     .loader.active { opacity: 1; }
     @keyframes spin { to { transform: rotate(360deg); } }
@@ -157,7 +167,7 @@
 
 <div class="ui-layer">
   <div class="controls-card">
-    <button class="btn-play" id="playBtn">▶</button>
+    <button class="btn-play" id="playBtn" title="Play/Pause (Spacebar)">▶</button>
     
     <div class="timeline-track-wrapper" id="trackWrapper">
       <div class="timeline-track">
@@ -167,11 +177,11 @@
       </div>
     </div>
 
-    <div class="loader" id="loader" title="Loading tiles..."></div>
+    <div class="loader" id="loader" title="Downloading tiles..."></div>
 
     <div class="info-panel">
-      <div class="label-year" id="lblYear">Loading...</div>
-      <div class="label-sub" id="lblRange"></div>
+      <div class="label-year" id="lblYear">...</div>
+      <div class="label-sub" id="lblRange">Timeline</div>
     </div>
   </div>
 </div>
@@ -185,7 +195,8 @@ const CONFIG = {
   rdntEndpoint: 'https://tiles.rdnt.io/tiles',
   rdntQuery: '&rgb=1,2,3',
   baseUrl: 'https://aeromap.io/',
-  // Organized data structure
+  
+  // Data Definition
   frames: [
     { id: '2011', date: '2011-09-01', files: ['201109N_geo_COG.tif', '201109S_geo_COG.tif'] },
     { id: '2012', date: '2012-09-01', files: ['201209N_geo_COG.tif', '201209S_geo_COG.tif'] },
@@ -195,6 +206,7 @@ const CONFIG = {
     { id: '2016 Mar', date: '2016-03-01', files: ['201603_geo_COG.tif'] },
     { id: '2016 Sep', date: '2016-09-01', files: ['201609_geo_COG.tif'] }
   ],
+  
   animationSpeed: 1000, // ms per frame
   initialView: { center: [32.8, -97.0], zoom: 9 }
 };
@@ -217,25 +229,27 @@ const Utils = {
 
 /**
  * MAP CONTROLLER
- * Handles loading COGs, caching TileJSON, and updating layers.
+ * Handles layers, caching, and the "Instant Swap" logic without flickering.
  */
 class MapController {
   constructor(mapId) {
     this.map = L.map(mapId, {
       zoomControl: false,
-      fadeAnimation: true, // Enable Leaflet's internal fading
+      fadeAnimation: false, // Disabled for manual control
       zoomAnimation: true,
       markerZoomAnimation: true,
-      worldCopyJump: false
+      worldCopyJump: false,
+      attributionControl: false 
     }).setView(CONFIG.initialView.center, CONFIG.initialView.zoom);
 
-    // Dark Basemap (Permanent background prevents white flashes if everything fails)
+    // Dark Basemap (Permanent background)
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
       maxZoom: 20, 
-      attribution: '&copy; CARTO',
       opacity: 1,
-      zIndex: 1 // Keep basemap at the bottom
+      zIndex: 1
     }).addTo(this.map);
+    
+    L.control.attribution({position: 'topright'}).addTo(this.map);
 
     this.cache = {}; 
     this.activeLayers = []; 
@@ -255,9 +269,9 @@ class MapController {
         minZoom: tileJson.minzoom || 0,
         maxZoom: 22,
         tileSize: 256,
-        opacity: 0, // CRITICAL: Start fully invisible
+        opacity: 0, // CRITICAL: Start invisible
         zIndex: 10,
-        keepBuffer: 2 // Keep a few tiles around to smooth panning
+        keepBuffer: 4 // Keep more tiles in memory for smoother panning
       });
 
       this.cache[filename] = { layer, bounds: tileJson.bounds };
@@ -268,19 +282,19 @@ class MapController {
     }
   }
 
+  // Preload logic for performance
   async preloadFrame(index) {
     if (!CONFIG.frames[index]) return;
     const promises = CONFIG.frames[index].files.map(f => this.getLayerData(f));
     await Promise.all(promises);
   }
 
-  // Helper: Returns a promise that resolves when the layer has loaded its visible tiles
+  // Waits for a layer's visible tiles to finish downloading
   waitForLayer(layer) {
     return new Promise(resolve => {
-      // If tiles are already loaded or valid, resolve immediately
+      // If no tiles needed or already loaded
       if (!layer._loading) return resolve();
       
-      // Resolve on load event
       const loadHandler = () => {
         layer.off('load', loadHandler);
         resolve();
@@ -288,63 +302,67 @@ class MapController {
       
       layer.on('load', loadHandler);
       
-      // Fallback: If tiles take too long (> 2s), just show it anyway to prevent hanging
+      // Safety timeout: If tile server hangs, proceed anyway after 3s
       setTimeout(() => {
         layer.off('load', loadHandler);
         resolve();
-      }, 2000);
+      }, 3000); 
     });
   }
 
+  // The Core Logic: Buffer Swap
   async showFrame(index) {
     const frame = CONFIG.frames[index];
     const loader = document.getElementById('loader');
-    loader.classList.add('active');
+    
+    // Show spinner if loading takes noticeable time (>50ms)
+    const spinnerTimeout = setTimeout(() => loader.classList.add('active'), 50);
 
-    // 1. Fetch metadata/create layers
+    // 1. Fetch Metadata (or retrieve from cache)
     const layerDataList = await Promise.all(frame.files.map(f => this.getLayerData(f)));
     
-    // 2. Add new layers to map (Still Invisible due to opacity: 0)
+    // 2. Add NEW layers to map (Hidden: Opacity 0)
+    // We add them now so they start fetching tiles immediately.
     const newLayers = [];
     layerDataList.forEach(d => {
       if(d && d.layer) {
         if(!this.map.hasLayer(d.layer)) {
-          d.layer.setOpacity(0); // Ensure it's invisible
+          d.layer.setOpacity(0); 
           d.layer.addTo(this.map);
         }
         newLayers.push(d.layer);
       }
     });
 
-    // 3. WAIT for tiles to actually download
-    // This is the magic step that stops the flicker
+    // 3. BUFFER: Wait for the new tiles to actually download
+    // This prevents the "White Flash" because we don't show the layer until it has data.
     await Promise.all(newLayers.map(l => this.waitForLayer(l)));
 
-    // 4. Transition: Reveal New, Hide Old
+    // 4. INSTANT SWAP
     requestAnimationFrame(() => {
+      // Turn New ON
       newLayers.forEach(l => l.setOpacity(1));
       
-      const toRemove = this.activeLayers.filter(l => !newLayers.includes(l));
-      
-      // Delay removal slightly to allow CSS transition of opacity
-      toRemove.forEach(l => {
-        l.setOpacity(0);
-        setTimeout(() => { 
-          if(this.map.hasLayer(l) && !newLayers.includes(l)) {
-            this.map.removeLayer(l); 
-          }
-        }, 800); 
+      // Turn Old OFF (Immediately)
+      this.activeLayers.forEach(l => {
+        if(!newLayers.includes(l)) {
+          this.map.removeLayer(l);
+        }
       });
 
       this.activeLayers = newLayers;
+      
+      // Cleanup spinner
+      clearTimeout(spinnerTimeout);
       loader.classList.remove('active');
     });
 
-    // 5. Preload next
+    // 5. Background Preload Next Frame
     const nextIdx = (index + 1) % CONFIG.frames.length;
     this.preloadFrame(nextIdx);
   }
 }
+
 /**
  * TIMELINE CONTROLLER
  * Handles UI, User Input, and Animation Loop
@@ -354,7 +372,7 @@ class TimelineApp {
     this.mapCtrl = mapController;
     this.frames = CONFIG.frames;
     
-    // Calculate Percentages
+    // Calculate Percentages for timeline
     const dates = this.frames.map(f => new Date(f.date).getTime());
     const min = Math.min(...dates);
     const max = Math.max(...dates);
@@ -380,7 +398,7 @@ class TimelineApp {
     this.initUI();
     this.update(0);
     
-    // Global Keys
+    // Keyboard Controls
     window.addEventListener('keydown', (e) => {
       if(e.key === ' '){ this.togglePlay(); e.preventDefault(); }
       if(e.key === 'ArrowRight') this.step(1);
@@ -389,7 +407,8 @@ class TimelineApp {
   }
 
   initUI() {
-    // Generate Ticks
+    this.ui.lblRange.textContent = `${this.frames[0].id} — ${this.frames[this.frames.length-1].id}`;
+
     this.frames.forEach((f, i) => {
       const tick = document.createElement('div');
       tick.className = 'tick';
@@ -397,16 +416,15 @@ class TimelineApp {
       this.ui.ticks.appendChild(tick);
     });
 
-    // Play Button
     this.ui.playBtn.onclick = () => this.togglePlay();
 
-    // Drag / Click Logic
+    // Interaction Logic (Drag/Click)
     const handleInput = (clientX) => {
       const rect = this.ui.track.getBoundingClientRect();
       const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
       const pct = (x / rect.width) * 100;
       
-      // Find closest frame
+      // Snap to closest frame
       let closestIdx = 0;
       let minDiff = Infinity;
       this.frames.forEach((f, i) => {
@@ -436,13 +454,18 @@ class TimelineApp {
     this.currentIndex = index;
     const f = this.frames[index];
     
-    // Update UI
+    // UI Update
     this.ui.handle.style.left = `${f.pct}%`;
     this.ui.progress.style.width = `${f.pct}%`;
     this.ui.lblYear.textContent = f.id;
-    this.ui.lblRange.textContent = `${this.frames[0].id} — ${this.frames[this.frames.length-1].id}`;
+    
+    // Tick styling
+    Array.from(this.ui.ticks.children).forEach((tick, i) => {
+      if(i === index) tick.classList.add('active');
+      else tick.classList.remove('active');
+    });
 
-    // Update Map
+    // Map Update
     this.mapCtrl.showFrame(index);
   }
 
@@ -462,20 +485,28 @@ class TimelineApp {
   play() {
     this.isPlaying = true;
     this.ui.playBtn.textContent = '❚❚';
-    this.timer = setInterval(() => {
+    this.ui.playBtn.classList.add('paused'); // Swaps padding for optical alignment
+    
+    // Run loop
+    const loop = () => {
       const next = (this.currentIndex + 1) % this.frames.length;
       this.update(next);
-    }, CONFIG.animationSpeed);
+    };
+
+    // Immediate next step? Optional, but feels more responsive
+    // loop(); 
+    this.timer = setInterval(loop, CONFIG.animationSpeed);
   }
 
   stop() {
     this.isPlaying = false;
     this.ui.playBtn.textContent = '▶';
+    this.ui.playBtn.classList.remove('paused');
     clearInterval(this.timer);
   }
 }
 
-// --- Bootstrap ---
+// --- Init ---
 document.addEventListener('DOMContentLoaded', () => {
   const mapCtrl = new MapController('map');
   const app = new TimelineApp(mapCtrl);
