@@ -12,160 +12,47 @@
       --text-light: #fff;
       --timeline-h: 6px;
     }
-
     html, body { height: 100%; margin: 0; background: #111; font-family: system-ui, -apple-system, sans-serif; overflow: hidden; }
-    
     #map { height: 100%; width: 100%; z-index: 1; background: #111; }
 
-    /* --- CRITICAL: Disable Leaflet Internal Animations for Instant Switch --- */
     .leaflet-fade-anim .leaflet-tile,
-    .leaflet-zoom-anim .leaflet-zoom-animated {
-      transition: none !important;
-    }
+    .leaflet-zoom-anim .leaflet-zoom-animated { transition: none !important; }
 
-    /* --- UI Overlay --- */
-    .ui-layer {
-      position: absolute;
-      bottom: 24px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: min(1000px, 92vw);
-      z-index: 1000;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      pointer-events: none; /* Let clicks pass through around controls */
-    }
+    .ui-layer { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); width: min(1000px, 92vw); z-index: 1000; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+    .controls-card { background: var(--bg-glass); backdrop-filter: blur(10px); padding: 16px 24px; border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.6); display: flex; align-items: center; gap: 20px; pointer-events: auto; border: 1px solid rgba(255,255,255,0.1); }
 
-    /* --- Timeline Container --- */
-    .controls-card {
-      background: var(--bg-glass);
-      backdrop-filter: blur(10px);
-      padding: 16px 24px;
-      border-radius: 16px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
-      display: flex;
-      align-items: center;
-      gap: 20px;
-      pointer-events: auto;
-      border: 1px solid rgba(255,255,255,0.1);
-    }
-
-    /* --- Play Button --- */
-    .btn-play {
-      width: 44px;
-      height: 44px;
-      border-radius: 50%;
-      background: var(--primary);
-      border: none;
-      color: white;
-      font-size: 18px;
-      cursor: pointer;
-      display: grid;
-      place-items: center;
-      transition: transform 0.1s, background 0.2s;
-      flex-shrink: 0;
-      padding-left: 4px; /* Optical center for play icon */
-    }
+    .btn-play { width: 44px; height: 44px; border-radius: 50%; background: var(--primary); border: none; color: white; font-size: 18px; cursor: pointer; display: grid; place-items: center; transition: transform 0.1s, background 0.2s; flex-shrink: 0; padding-left: 4px; }
     .btn-play.paused { padding-left: 0; }
     .btn-play:hover { background: #4aa3ff; }
     .btn-play:active { transform: scale(0.95); }
 
-    /* --- Timeline Bar --- */
-    .timeline-track-wrapper {
-      flex: 1;
-      position: relative;
-      height: 32px;
-      display: flex;
-      align-items: center;
-      cursor: pointer;
-    }
+    .timeline-track-wrapper { flex: 1; position: relative; height: 32px; display: flex; align-items: center; cursor: pointer; }
+    .timeline-track { width: 100%; height: var(--timeline-h); background: rgba(255,255,255,0.2); border-radius: 4px; position: relative; }
+    .timeline-progress { position: absolute; height: 100%; background: var(--primary); border-radius: 4px; width: 0%; pointer-events: none; }
 
-    .timeline-track {
-      width: 100%;
-      height: var(--timeline-h);
-      background: rgba(255,255,255,0.2);
-      border-radius: 4px;
-      position: relative;
-    }
-
-    .timeline-progress {
-      position: absolute;
-      height: 100%;
-      background: var(--primary);
-      border-radius: 4px;
-      width: 0%;
-      pointer-events: none;
-    }
-
-    /* --- Ticks & Handles --- */
-    .tick {
-      position: absolute;
-      width: 2px;
-      height: 12px;
-      background: rgba(255,255,255,0.4);
-      top: 50%;
-      transform: translate(-50%, -50%);
-      pointer-events: none;
-    }
-    /* Highlight major ticks */
+    .tick { position: absolute; width: 2px; height: 12px; background: rgba(255,255,255,0.4); top: 50%; transform: translate(-50%, -50%); pointer-events: none; }
     .tick.active { background: #fff; height: 16px; opacity: 1; }
 
-    .handle {
-      position: absolute;
-      width: 18px;
-      height: 18px;
-      background: #fff;
-      border-radius: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      box-shadow: 0 0 0 4px rgba(30,144,255,0.4);
-      cursor: grab;
-      transition: transform 0.1s;
-    }
+    .handle { position: absolute; width: 18px; height: 18px; background: #fff; border-radius: 50%; top: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 0 4px rgba(30,144,255,0.4); cursor: grab; transition: transform 0.1s; }
     .handle:active { cursor: grabbing; transform: translate(-50%, -50%) scale(1.1); }
 
-    /* --- Text Info --- */
-    .info-panel {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      min-width: 110px;
-      color: var(--text-light);
-    }
+    .info-panel { display: flex; flex-direction: column; align-items: flex-end; min-width: 110px; color: var(--text-light); }
     .label-year { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; letter-spacing: -0.5px; }
     .label-sub { font-size: 11px; opacity: 0.6; margin-top: 5px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;}
 
-    /* --- Loading Spinner --- */
-    .loader {
-      width: 20px; height: 20px;
-      border: 2px solid rgba(255,255,255,0.1);
-      border-top-color: var(--primary);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      opacity: 0;
-      transition: opacity 0.2s;
-    }
+    .loader { width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.1); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; opacity: 0; transition: opacity 0.2s; }
     .loader.active { opacity: 1; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* --- Toast --- */
-    .toast {
-      position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
-      background: #c0392b; color: white; padding: 8px 16px;
-      border-radius: 6px; font-size: 14px; z-index: 2000;
-      opacity: 0; transition: opacity 0.3s; pointer-events: none;
-    }
+    .toast { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: #c0392b; color: white; padding: 8px 16px; border-radius: 6px; font-size: 14px; z-index: 2000; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
     .toast.visible { opacity: 1; }
-
   </style>
-  <!-- Privacy-friendly analytics by Plausible -->
-<script async src="https://plausible.io/js/pa-oIee4DcCO6MlCK-80VGrZ.js"></script>
-<script>
-  window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
-  plausible.init()
-</script>
 
+  <script async src="https://plausible.io/js/pa-oIee4DcCO6MlCK-80VGrZ.js"></script>
+  <script>
+    window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=plausible.init||function(i){plausible.o=i||{}};
+    plausible.init()
+  </script>
 </head>
 <body>
 
@@ -175,7 +62,6 @@
 <div class="ui-layer">
   <div class="controls-card">
     <button class="btn-play" id="playBtn" title="Play/Pause (Spacebar)">▶</button>
-    
     <div class="timeline-track-wrapper" id="trackWrapper">
       <div class="timeline-track">
         <div class="timeline-progress" id="progress"></div>
@@ -183,9 +69,7 @@
         <div class="handle" id="handle"></div>
       </div>
     </div>
-
     <div class="loader" id="loader" title="Downloading tiles..."></div>
-
     <div class="info-panel">
       <div class="label-year" id="lblYear">...</div>
       <div class="label-sub" id="lblRange">Timeline</div>
@@ -195,32 +79,33 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-/**
- * CONFIGURATION
- */
+/** CONFIGURATION **/
 const CONFIG = {
   rdntEndpoint: 'https://tiles.rdnt.io/tiles',
   rdntQuery: '&rgb=1,2,3',
   baseUrl: 'https://aeromap.io/',
-  
-  // Data Definition
+
+  // All files shown in your screenshot (chronological)
   frames: [
-    { id: '2011', date: '2011-09-01', files: ['201109N_geo_COG.tif', '201109S_geo_COG.tif'] },
-    { id: '2012', date: '2012-09-01', files: ['201209N_geo_COG.tif', '201209S_geo_COG.tif'] },
-    { id: '2013', date: '2013-09-01', files: ['201309N_geo_COG.tif', '201309S_geo_COG.tif'] },
-    { id: '2014', date: '2014-03-01', files: ['201403_geo_COG.tif'] },
-    { id: '2015', date: '2015-03-01', files: ['201503_geo_COG.tif'] },
+    { id: '1933 Feb', date: '1933-02-01', files: ['193302_geo_COG.tif'] },
+    { id: '1933 Jul', date: '1933-07-01', files: ['193307_geo_COG.tif'] },
+    { id: '1933 Sep', date: '1933-09-01', files: ['193309_geo_COG.tif'] },
+    { id: '1934 Aug', date: '1934-08-01', files: ['193408_geo_COG.tif'] },
+
+    { id: '2011 Sep', date: '2011-09-01', files: ['201109N_geo_COG.tif', '201109S_geo_COG.tif'] },
+    { id: '2012 Sep', date: '2012-09-01', files: ['201209N_geo_COG.tif', '201209S_geo_COG.tif'] },
+    { id: '2013 Sep', date: '2013-09-01', files: ['201309N_geo_COG.tif', '201309S_geo_COG.tif'] },
+    { id: '2014 Mar', date: '2014-03-01', files: ['201403_geo_COG.tif'] },
+    { id: '2015 Mar', date: '2015-03-01', files: ['201503_geo_COG.tif'] },
     { id: '2016 Mar', date: '2016-03-01', files: ['201603_geo_COG.tif'] },
     { id: '2016 Sep', date: '2016-09-01', files: ['201609_geo_COG.tif'] }
   ],
-  
+
   animationSpeed: 1000, // ms per frame
   initialView: { center: [32.8, -97.0], zoom: 9 }
 };
 
-/**
- * UTILITIES
- */
+/** UTILITIES **/
 const Utils = {
   buildCogUrl: (filename) => {
     const encoded = encodeURIComponent(CONFIG.baseUrl + filename);
@@ -234,159 +119,113 @@ const Utils = {
   }
 };
 
-/**
- * MAP CONTROLLER
- * Handles layers, caching, and the "Instant Swap" logic without flickering.
- */
+/** MAP CONTROLLER **/
 class MapController {
   constructor(mapId) {
     this.map = L.map(mapId, {
       zoomControl: false,
-      fadeAnimation: false, // Disabled for manual control
+      fadeAnimation: false,
       zoomAnimation: true,
       markerZoomAnimation: true,
       worldCopyJump: false,
       attributionControl: false 
     }).setView(CONFIG.initialView.center, CONFIG.initialView.zoom);
 
-    // Dark Basemap (Permanent background)
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      maxZoom: 20, 
-      opacity: 1,
-      zIndex: 1
+      maxZoom: 20, opacity: 1, zIndex: 1
     }).addTo(this.map);
-    
     L.control.attribution({position: 'topright'}).addTo(this.map);
 
-    this.cache = {}; 
-    this.activeLayers = []; 
+    this.cache = {};
+    this.activeLayers = [];
   }
 
   async getLayerData(filename) {
     if (this.cache[filename]) return this.cache[filename];
-    
     try {
       const url = Utils.buildCogUrl(filename);
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const tileJson = await res.json();
-      
+
       const tileUrl = tileJson.tiles[0];
       const layer = L.tileLayer(tileUrl, {
         minZoom: tileJson.minzoom || 0,
         maxZoom: 22,
         tileSize: 256,
-        opacity: 0, // CRITICAL: Start invisible
+        opacity: 0,
         zIndex: 10,
-        keepBuffer: 4 // Keep more tiles in memory for smoother panning
+        keepBuffer: 4
       });
 
       this.cache[filename] = { layer, bounds: tileJson.bounds };
       return this.cache[filename];
     } catch (e) {
       console.error(`Failed to load ${filename}`, e);
+      Utils.toast(`Failed to load ${filename}`);
       return null;
     }
   }
 
-  // Preload logic for performance
   async preloadFrame(index) {
     if (!CONFIG.frames[index]) return;
-    const promises = CONFIG.frames[index].files.map(f => this.getLayerData(f));
-    await Promise.all(promises);
+    await Promise.all(CONFIG.frames[index].files.map(f => this.getLayerData(f)));
   }
 
-  // Waits for a layer's visible tiles to finish downloading
   waitForLayer(layer) {
     return new Promise(resolve => {
-      // If no tiles needed or already loaded
       if (!layer._loading) return resolve();
-      
-      const loadHandler = () => {
-        layer.off('load', loadHandler);
-        resolve();
-      };
-      
-      layer.on('load', loadHandler);
-      
-      // Safety timeout: If tile server hangs, proceed anyway after 3s
-      setTimeout(() => {
-        layer.off('load', loadHandler);
-        resolve();
-      }, 3000); 
+      const onload = () => { layer.off('load', onload); resolve(); };
+      layer.on('load', onload);
+      setTimeout(() => { layer.off('load', onload); resolve(); }, 3000);
     });
   }
 
-  // The Core Logic: Buffer Swap
   async showFrame(index) {
     const frame = CONFIG.frames[index];
     const loader = document.getElementById('loader');
-    
-    // Show spinner if loading takes noticeable time (>50ms)
+
     const spinnerTimeout = setTimeout(() => loader.classList.add('active'), 50);
 
-    // 1. Fetch Metadata (or retrieve from cache)
     const layerDataList = await Promise.all(frame.files.map(f => this.getLayerData(f)));
-    
-    // 2. Add NEW layers to map (Hidden: Opacity 0)
-    // We add them now so they start fetching tiles immediately.
+
     const newLayers = [];
     layerDataList.forEach(d => {
-      if(d && d.layer) {
-        if(!this.map.hasLayer(d.layer)) {
-          d.layer.setOpacity(0); 
+      if (d && d.layer) {
+        if (!this.map.hasLayer(d.layer)) {
+          d.layer.setOpacity(0);
           d.layer.addTo(this.map);
         }
         newLayers.push(d.layer);
       }
     });
 
-    // 3. BUFFER: Wait for the new tiles to actually download
-    // This prevents the "White Flash" because we don't show the layer until it has data.
     await Promise.all(newLayers.map(l => this.waitForLayer(l)));
 
-    // 4. INSTANT SWAP
     requestAnimationFrame(() => {
-      // Turn New ON
       newLayers.forEach(l => l.setOpacity(1));
-      
-      // Turn Old OFF (Immediately)
-      this.activeLayers.forEach(l => {
-        if(!newLayers.includes(l)) {
-          this.map.removeLayer(l);
-        }
-      });
-
+      this.activeLayers.forEach(l => { if (!newLayers.includes(l)) this.map.removeLayer(l); });
       this.activeLayers = newLayers;
-      
-      // Cleanup spinner
+
       clearTimeout(spinnerTimeout);
       loader.classList.remove('active');
     });
 
-    // 5. Background Preload Next Frame
     const nextIdx = (index + 1) % CONFIG.frames.length;
     this.preloadFrame(nextIdx);
   }
 }
 
-/**
- * TIMELINE CONTROLLER
- * Handles UI, User Input, and Animation Loop
- */
+/** TIMELINE CONTROLLER **/
 class TimelineApp {
   constructor(mapController) {
     this.mapCtrl = mapController;
     this.frames = CONFIG.frames;
-    
-    // Calculate Percentages for timeline
+
     const dates = this.frames.map(f => new Date(f.date).getTime());
     const min = Math.min(...dates);
     const max = Math.max(...dates);
-    this.frames.forEach((f, i) => {
-      const d = dates[i];
-      f.pct = max === min ? 0 : ((d - min) / (max - min)) * 100;
-    });
+    this.frames.forEach((f, i) => { const d = dates[i]; f.pct = max === min ? 0 : ((d - min) / (max - min)) * 100; });
 
     this.currentIndex = 0;
     this.isPlaying = false;
@@ -404,19 +243,18 @@ class TimelineApp {
 
     this.initUI();
     this.update(0);
-    
-    // Keyboard Controls
+
     window.addEventListener('keydown', (e) => {
-      if(e.key === ' '){ this.togglePlay(); e.preventDefault(); }
-      if(e.key === 'ArrowRight') this.step(1);
-      if(e.key === 'ArrowLeft') this.step(-1);
+      if (e.key === ' ') { this.togglePlay(); e.preventDefault(); }
+      if (e.key === 'ArrowRight') this.step(1);
+      if (e.key === 'ArrowLeft') this.step(-1);
     });
   }
 
   initUI() {
     this.ui.lblRange.textContent = `${this.frames[0].id} — ${this.frames[this.frames.length-1].id}`;
 
-    this.frames.forEach((f, i) => {
+    this.frames.forEach((f) => {
       const tick = document.createElement('div');
       tick.className = 'tick';
       tick.style.left = `${f.pct}%`;
@@ -425,29 +263,24 @@ class TimelineApp {
 
     this.ui.playBtn.onclick = () => this.togglePlay();
 
-    // Interaction Logic (Drag/Click)
     const handleInput = (clientX) => {
       const rect = this.ui.track.getBoundingClientRect();
       const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
       const pct = (x / rect.width) * 100;
-      
-      // Snap to closest frame
-      let closestIdx = 0;
-      let minDiff = Infinity;
+
+      let closestIdx = 0, minDiff = Infinity;
       this.frames.forEach((f, i) => {
         const diff = Math.abs(f.pct - pct);
-        if(diff < minDiff) { minDiff = diff; closestIdx = i; }
+        if (diff < minDiff) { minDiff = diff; closestIdx = i; }
       });
-      
-      if(closestIdx !== this.currentIndex) {
-        this.update(closestIdx);
-      }
+
+      if (closestIdx !== this.currentIndex) this.update(closestIdx);
     };
 
     let isDragging = false;
-    const startDrag = (e) => { isDragging = true; this.stop(); handleInput(e.clientX || e.touches[0].clientX); };
-    const moveDrag = (e) => { if(isDragging) handleInput(e.clientX || e.touches[0].clientX); };
-    const endDrag = () => { isDragging = false; };
+    const startDrag = (e) => { isDragging = true; this.stop(); handleInput((e.touches?.[0]?.clientX) ?? e.clientX); };
+    const moveDrag  = (e) => { if (isDragging) handleInput((e.touches?.[0]?.clientX) ?? e.clientX); };
+    const endDrag   = () => { isDragging = false; };
 
     this.ui.track.addEventListener('mousedown', startDrag);
     this.ui.track.addEventListener('touchstart', startDrag, {passive:false});
@@ -460,49 +293,35 @@ class TimelineApp {
   update(index) {
     this.currentIndex = index;
     const f = this.frames[index];
-    
-    // UI Update
+
     this.ui.handle.style.left = `${f.pct}%`;
     this.ui.progress.style.width = `${f.pct}%`;
     this.ui.lblYear.textContent = f.id;
-    
-    // Tick styling
+
     Array.from(this.ui.ticks.children).forEach((tick, i) => {
-      if(i === index) tick.classList.add('active');
-      else tick.classList.remove('active');
+      if (i === index) tick.classList.add('active'); else tick.classList.remove('active');
     });
 
-    // Map Update
     this.mapCtrl.showFrame(index);
   }
 
   step(dir) {
     this.stop();
     let next = this.currentIndex + dir;
-    if(next >= this.frames.length) next = 0;
-    if(next < 0) next = this.frames.length - 1;
+    if (next >= this.frames.length) next = 0;
+    if (next < 0) next = this.frames.length - 1;
     this.update(next);
   }
 
   togglePlay() {
-    if(this.isPlaying) this.stop();
-    else this.play();
+    if (this.isPlaying) this.stop(); else this.play();
   }
 
   play() {
     this.isPlaying = true;
     this.ui.playBtn.textContent = '❚❚';
-    this.ui.playBtn.classList.add('paused'); // Swaps padding for optical alignment
-    
-    // Run loop
-    const loop = () => {
-      const next = (this.currentIndex + 1) % this.frames.length;
-      this.update(next);
-    };
-
-    // Immediate next step? Optional, but feels more responsive
-    // loop(); 
-    this.timer = setInterval(loop, CONFIG.animationSpeed);
+    this.ui.playBtn.classList.add('paused');
+    this.timer = setInterval(() => this.update((this.currentIndex + 1) % this.frames.length), CONFIG.animationSpeed);
   }
 
   stop() {
@@ -513,12 +332,11 @@ class TimelineApp {
   }
 }
 
-// --- Init ---
+// Init
 document.addEventListener('DOMContentLoaded', () => {
   const mapCtrl = new MapController('map');
-  const app = new TimelineApp(mapCtrl);
+  new TimelineApp(mapCtrl);
 });
-
 </script>
 </body>
 </html>
