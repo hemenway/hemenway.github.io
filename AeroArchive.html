@@ -3,137 +3,151 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>DFW Sectionals</title>
-
-  <!-- Leaflet CSS -->
+  <title>DFW Sectionals — Timeline</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-
   <style>
-    html, body { height: 100%; margin: 0; }
-    #map { height: 100%; }
+    :root {
+      --primary: #1e90ff;
+      --bg-glass: rgba(20, 25, 30, 0.85);
+      --text-light: #fff;
+      --timeline-h: 6px;
+    }
 
-    /* --- Timeline UI (Google Earth–style) --- */
-    .timeline-container {
+    html, body { height: 100%; margin: 0; background: #111; font-family: system-ui, -apple-system, sans-serif; overflow: hidden; }
+    
+    #map { height: 100%; width: 100%; z-index: 1; }
+
+    /* --- UI Overlay --- */
+    .ui-layer {
       position: absolute;
-      bottom: 12px;
+      bottom: 20px;
       left: 50%;
       transform: translateX(-50%);
-      width: min(1100px, 86vw);
-      height: 64px;
-      background: rgba(0,0,0,0.7);
-      border-radius: 10px;
+      width: min(1000px, 90vw);
+      z-index: 1000;
       display: flex;
-      align-items: center;
-      padding: 10px 18px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.45);
-      color: #fff;
-      z-index: 1000; /* above Leaflet controls */
-      backdrop-filter: blur(2px);
-      user-select: none;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none; /* Let clicks pass through around controls */
     }
 
-    .timeline-play {
-      width: 34px;
-      height: 34px;
-      border-radius: 999px;
-      background: #1e90ff;
-      color: #fff;
+    /* --- Timeline Container --- */
+    .controls-card {
+      background: var(--bg-glass);
+      backdrop-filter: blur(8px);
+      padding: 16px 24px;
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      pointer-events: auto;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    /* --- Play Button --- */
+    .btn-play {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--primary);
+      border: none;
+      color: white;
+      font-size: 18px;
+      cursor: pointer;
       display: grid;
       place-items: center;
-      cursor: pointer;
-      margin-right: 16px;
-      font-size: 16px;
-      box-shadow: 0 0 0 2px rgba(255,255,255,0.15) inset;
+      transition: transform 0.1s, background 0.2s;
+      flex-shrink: 0;
     }
-    .timeline-play:active { transform: scale(0.98); }
+    .btn-play:hover { background: #4aa3ff; }
+    .btn-play:active { transform: scale(0.95); }
 
-    .timeline-bar-wrap {
-      position: relative;
+    /* --- Timeline Bar --- */
+    .timeline-track-wrapper {
       flex: 1;
-      height: 22px; /* room for ticks */
+      position: relative;
+      height: 30px;
       display: flex;
       align-items: center;
-    }
-    .timeline-bar {
-      position: relative;
-      width: 100%;
-      height: 6px;
-      background: #2a3a46;
-      border-radius: 3px;
       cursor: pointer;
     }
 
-    /* Progress (filled) – purely visual */
+    .timeline-track {
+      width: 100%;
+      height: var(--timeline-h);
+      background: rgba(255,255,255,0.2);
+      border-radius: 4px;
+      position: relative;
+    }
+
     .timeline-progress {
       position: absolute;
       height: 100%;
-      left: 0;
-      top: 0;
+      background: var(--primary);
+      border-radius: 4px;
       width: 0%;
-      background: linear-gradient(90deg, #4aa3ff, #1e90ff);
-      border-radius: 3px;
       pointer-events: none;
     }
 
-    /* Tick marks */
-    .timeline-tick {
+    /* --- Ticks & Handles --- */
+    .tick {
       position: absolute;
       width: 2px;
-      height: 10px;
-      background: #cfd8dc;
-      top: -2px;
-      transform: translateX(-1px);
-      opacity: 0.9;
+      height: 12px;
+      background: rgba(255,255,255,0.5);
+      top: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
     }
-    .timeline-tick.small { height: 8px; opacity: 0.6; }
 
-    /* Draggable handle */
-    .timeline-handle {
+    .handle {
       position: absolute;
-      width: 14px;
-      height: 14px;
-      background: #1e90ff;
-      border-radius: 999px;
-      top: -4px;
-      transform: translate(-7px, 0);
+      width: 18px;
+      height: 18px;
+      background: #fff;
+      border-radius: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 0 0 4px rgba(30,144,255,0.4);
       cursor: grab;
-      box-shadow: 0 0 0 2px #fff inset, 0 0 0 2px rgba(30,144,255,0.25);
+      transition: transform 0.1s;
     }
-    .timeline-handle:active { cursor: grabbing; }
+    .handle:active { cursor: grabbing; transform: translate(-50%, -50%) scale(1.2); }
 
-    .timeline-year-label {
-      min-width: 72px;
-      text-align: right;
-      margin-left: 14px;
-      font-size: 16px;
-      font-weight: 700;
-      letter-spacing: 0.3px;
-      color: #fffd62; /* yellow accent */
+    /* --- Text Info --- */
+    .info-panel {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      min-width: 100px;
+      color: var(--text-light);
     }
+    .label-year { font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; }
+    .label-sub { font-size: 11px; opacity: 0.7; margin-top: 4px; }
 
-    /* Range handles (start/end bounds) */
-    .timeline-range-handle {
-      position: absolute;
-      width: 10px; height: 18px;
-      top: -6px;
-      transform: translate(-5px, 0);
-      background: #ffd54f;
-      border-radius: 3px;
-      box-shadow: 0 0 0 2px rgba(0,0,0,.25);
-      cursor: ew-resize;
+    /* --- Loading Spinner --- */
+    .loader {
+      width: 20px; height: 20px;
+      border: 3px solid rgba(255,255,255,0.1);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      opacity: 0;
+      transition: opacity 0.3s;
     }
-    .timeline-range-handle.end { background: #ff8a65; }
+    .loader.active { opacity: 1; }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* Make default Leaflet controls sit above the map but below timeline */
-    .leaflet-control-container { z-index: 500; }
-
-    /* Tiny helper toast */
+    /* --- Toast --- */
     .toast {
-      position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
-      background: rgba(0,0,0,.7); color: #fff; padding: 8px 12px; border-radius: 8px;
-      font: 13px/1.2 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      z-index: 1200; display:none;
+      position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+      background: #c0392b; color: white; padding: 8px 16px;
+      border-radius: 6px; font-size: 14px; z-index: 2000;
+      opacity: 0; transition: opacity 0.3s; pointer-events: none;
     }
+    .toast.visible { opacity: 1; }
+
   </style>
 </head>
 <body>
@@ -141,398 +155,296 @@
 <div id="map"></div>
 <div class="toast" id="toast"></div>
 
-<!-- Timeline overlay -->
-<div class="timeline-container" id="timeline">
-  <div class="timeline-play" id="playBtn" title="Play/Pause">▶</div>
+<div class="ui-layer">
+  <div class="controls-card">
+    <button class="btn-play" id="playBtn">▶</button>
+    
+    <div class="timeline-track-wrapper" id="trackWrapper">
+      <div class="timeline-track">
+        <div class="timeline-progress" id="progress"></div>
+        <div id="ticksContainer"></div>
+        <div class="handle" id="handle"></div>
+      </div>
+    </div>
 
-  <div class="timeline-bar-wrap">
-    <div class="timeline-bar" id="timelineBar">
-      <div class="timeline-progress" id="timelineProgress"></div>
-      <!-- ticks + handle injected by JS -->
+    <div class="loader" id="loader" title="Loading tiles..."></div>
+
+    <div class="info-panel">
+      <div class="label-year" id="lblYear">Loading...</div>
+      <div class="label-sub" id="lblRange"></div>
     </div>
   </div>
-
-  <div class="timeline-year-label" id="timelineYear">—</div>
 </div>
 
-<!-- Leaflet JS -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
 <script>
-/***************************
- * Combined version notes
- * - Leaflet timeline UI from your first file
- * - RDNT TileJSON tiler (https://tiles.rdnt.io/tiles) from your second file
- * - Each COG fetched as TileJSON, added as L.tileLayer(tj.tiles[0])
- * - Frames are additive across years
- ***************************/
+/**
+ * CONFIGURATION
+ */
+const CONFIG = {
+  rdntEndpoint: 'https://tiles.rdnt.io/tiles',
+  rdntQuery: '&rgb=1,2,3',
+  baseUrl: 'https://aeromap.io/',
+  // Organized data structure
+  frames: [
+    { id: '2011', date: '2011-09-01', files: ['201109N_geo_COG.tif', '201109S_geo_COG.tif'] },
+    { id: '2012', date: '2012-09-01', files: ['201209N_geo_COG.tif', '201209S_geo_COG.tif'] },
+    { id: '2013', date: '2013-09-01', files: ['201309N_geo_COG.tif', '201309S_geo_COG.tif'] },
+    { id: '2014', date: '2014-03-01', files: ['201403_geo_COG.tif'] },
+    { id: '2015', date: '2015-03-01', files: ['201503_geo_COG.tif'] },
+    { id: '2016 Mar', date: '2016-03-01', files: ['201603_geo_COG.tif'] },
+    { id: '2016 Sep', date: '2016-09-01', files: ['201609_geo_COG.tif'] }
+  ],
+  animationSpeed: 1000, // ms per frame
+  initialView: { center: [32.8, -97.0], zoom: 9 }
+};
 
-/* ------------------------------
-   RDNT tiler base + options
---------------------------------*/
-const RDNT_ENDPOINT = 'https://tiles.rdnt.io/tiles';
-const RDNT_QUERY = '&rgb=1,2,3&linearStretch=true&nodata=0'; // add &nodata=0 if needed
-
-/* ------------------------------
-   Helper: encoded aeromap.io URL
---------------------------------*/
-function buildEncodedCogUrl(filename) {
-  return encodeURIComponent('https://aeromap.io/' + filename);
-}
-
-/* ------------------------------
-   COG files (individual layers)
---------------------------------*/
-const cogFiles = [
-  '201109N_geo_COG.tif',
-  '201109S_geo_COG.tif',
-  '201209N_geo_COG.tif',
-  '201209S_geo_COG.tif',
-  '201309N_geo_COG.tif',
-  '201309S_geo_COG.tif',
-  '201403_geo_COG.tif',
-  '201503_geo_COG.tif',
-  '201603_geo_COG.tif',
-  '201609_geo_COG.tif'
-];
-
-/* Label map (keep labels equal to filenames for layer keys) */
-const cogLabelsByFile = {};
-for (const f of cogFiles) cogLabelsByFile[f] = f;
-
-/* ------------------------------
-   Initialize map (no fades)
---------------------------------*/
-const map = L.map('map', {
-  worldCopyJump: false,
-  fadeAnimation: false,
-  zoomAnimation: false
-});
-
-const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 22,
-  noWrap: true,
-  attribution: '&copy; OpenStreetMap contributors'
-}).addTo(map);
-
-/* ------------------------------
-   Dynamically build COG overlay layers via RDNT TileJSON
---------------------------------*/
-const cogLayers = {};            // label -> L.tileLayer
-const cogTileJSON = {};          // label -> TileJSON (for min/max zoom, bounds)
-let unionBounds = null;          // LatLngBounds of all rasters
-
-async function loadCogAsLayer(filename) {
-  const label = 'COG ' + cogLabelsByFile[filename];
-  if (cogLayers[label]) return { label, layer: cogLayers[label] };
-
-  const encoded = buildEncodedCogUrl(filename);
-  const url = `${RDNT_ENDPOINT}?url=${encoded}${RDNT_QUERY}`;
-
-  const tj = await fetch(url).then(r => {
-    if (!r.ok) throw new Error('RDNT tiler error ' + r.status);
-    return r.json();
-  });
-
-  const tileUrl = tj.tiles && tj.tiles[0];
-  if (!tileUrl) throw new Error('TileJSON missing tiles template');
-
-  // Compute per-layer bounds from TileJSON
-  const b = tj.bounds; // [w,s,e,n]
-  let layerBounds = null;
-  if (Array.isArray(b) && b.length === 4) {
-    layerBounds = L.latLngBounds([[b[1], b[0]], [b[3], b[2]]]);
-  }
-
-  const layer = L.tileLayer(tileUrl, {
-    minZoom: tj.minzoom ?? 0,
-    maxZoom: Math.min(22, tj.maxzoom ?? 22),
-    crossOrigin: true,
-    tileSize: 256,
-    noWrap: true,
-    bounds: layerBounds || undefined,
-    errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP8z8BQDwAD3gG7miRCNQAAAABJRU5ErkJggg=='
-  });
-
-  // Save references
-  cogLayers[label] = layer;
-  cogTileJSON[label] = tj;
-
-  // Expand overall bounds
-  if (layerBounds) {
-    unionBounds = unionBounds ? unionBounds.extend(layerBounds) : layerBounds;
-  }
-
-  return { label, layer };
-}
-
-/* Preload all COG tile layers (in parallel) so the layer control is ready */
-async function preloadAllCogs() {
-  const results = await Promise.allSettled(cogFiles.map(loadCogAsLayer));
-  const ok = results.filter(r => r.status === 'fulfilled').map(r => r.value);
-  const failed = results.filter(r => r.status === 'rejected');
-  if (failed.length) toast(`${failed.length} layer(s) failed to load. Check COG URLs or RDNT options.`);
-  return ok;
-}
-
-/* Tiny toast helper */
-function toast(msg, ms = 2600) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.style.display = 'block';
-  clearTimeout(toast._t);
-  toast._t = setTimeout(() => (el.style.display = 'none'), ms);
-}
-
-/* ------------------------------
-   Year-grouped frames (additive)
---------------------------------*/
-const frames = [
-  { label: '2011',    layerKeys: [ 'COG ' + cogLabelsByFile['201109N_geo_COG.tif'],
-                                   'COG ' + cogLabelsByFile['201109S_geo_COG.tif'] ] },
-  { label: '2012',    layerKeys: [ 'COG ' + cogLabelsByFile['201209N_geo_COG.tif'],
-                                   'COG ' + cogLabelsByFile['201209S_geo_COG.tif'] ] },
-  { label: '2013',    layerKeys: [ 'COG ' + cogLabelsByFile['201309N_geo_COG.tif'],
-                                   'COG ' + cogLabelsByFile['201309S_geo_COG.tif'] ] },
-  { label: '2014',    layerKeys: [ 'COG ' + cogLabelsByFile['201403_geo_COG.tif'] ] },
-  { label: '2015',    layerKeys: [ 'COG ' + cogLabelsByFile['201503_geo_COG.tif'] ] },
-  { label: '2016-03', layerKeys: [ 'COG ' + cogLabelsByFile['201603_geo_COG.tif'] ] },
-  { label: '2016-09', layerKeys: [ 'COG ' + cogLabelsByFile['201609_geo_COG.tif'] ] }
-];
-
-/* ------------------------------
-   Additive animation state
---------------------------------*/
-let currentIndex = 0;         // start at earliest frame
-let isPlaying = false;
-let playTimer = null;
-const frameDuration = 800;    // ms between frames
-
-/* Utilities */
-function clearAllCogLayers() {
-  Object.values(cogLayers).forEach(layer => { if (map.hasLayer(layer)) map.removeLayer(layer); });
-}
-
-/* Add only this frame's layers (keep previous ones) */
-function addFrame(index) {
-  currentIndex = Math.max(0, Math.min(frames.length - 1, index));
-  // Clear any existing raster(s) so playback is non-additive
-  clearAllCogLayers();
-  const frame = frames[currentIndex];
-  if (frame.layerKeys && frame.layerKeys.length) {
-    frame.layerKeys.forEach(key => {
-      const layer = cogLayers[key];
-      if (layer) layer.addTo(map);
-    });
-  }
-}
-
-
-/* Step forward (reset when wrapping) */
-function nextFrame() {
-  const atEnd = (currentIndex >= rangeEnd);
-  let next = atEnd ? rangeStart : Math.max(rangeStart, Math.min(rangeEnd, currentIndex + 1));
-  addFrame(next);
-}
-
-
-/* Step backward (index only; layers remain additive) */
-function prevFrame() {
-  const prev = (currentIndex - 1 + frames.length) % frames.length;
-  currentIndex = prev;
-}
-
-/* Play/Pause */
-function startPlaying() {
-  if (isPlaying) return;
-  isPlaying = true;
-  playTimer = setInterval(() => {
-    nextFrame();
-    updateTimelineFromIndex();
-  }, frameDuration);
-}
-function stopPlaying() {
-  if (!isPlaying) return;
-  isPlaying = false;
-  clearInterval(playTimer);
-  playTimer = null;
-}
-
-/* ------------------------------
-   Timeline wiring (ticks, handle, drag)
---------------------------------*/
-const barEl = document.getElementById('timelineBar');
-const progressEl = document.getElementById('timelineProgress');
-const playBtnEl = document.getElementById('playBtn');
-const yearLabelEl = document.getElementById('timelineYear');
-
-const n = frames.length;
-
-/* Playback bounds (inclusive indices) */
-let rangeStart = 0;
-let rangeEnd = n - 1;
-
-/* Create ticks */
-frames.forEach((f, i) => {
-  const tick = document.createElement('div');
-  tick.className = 'timeline-tick' + (i % 2 ? ' small' : '');
-  tick.style.left = (i / (n - 1)) * 100 + '%';
-  tick.title = f.label;
-  barEl.appendChild(tick);
-
-  tick.addEventListener('click', () => {
-    stopPlaying();
-    playBtnEl.textContent = '▶';
-    moveToFrame(i);
-  });
-});
-
-/* Create draggable handle (current position) */
-const handleEl = document.createElement('div');
-handleEl.className = 'timeline-handle';
-barEl.appendChild(handleEl);
-
-/* Create range handles (start/end) */
-const rangeStartEl = document.createElement('div');
-rangeStartEl.className = 'timeline-range-handle start';
-barEl.appendChild(rangeStartEl);
-
-const rangeEndEl = document.createElement('div');
-rangeEndEl.className = 'timeline-range-handle end';
-barEl.appendChild(rangeEndEl);
-
-/* Helpers for UI sync */
-function updateTimelineFromIndex() {
-  const pct = (n === 1) ? 0 : (currentIndex / (n - 1)) * 100;
-  handleEl.style.left = pct + '%';
-  progressEl.style.width = pct + '%';
-  yearLabelEl.textContent = frames[currentIndex].label + `  (range: ${frames[rangeStart].label} – ${frames[rangeEnd].label})`;
-  // range handles
-  const sPct = (rangeStart / (n - 1)) * 100;
-  const ePct = (rangeEnd   / (n - 1)) * 100;
-  rangeStartEl.style.left = sPct + '%';
-  rangeEndEl.style.left   = ePct + '%';
-}
-
-/* Move to exact frame index + update UI */
-function moveToFrame(i) {
-  addFrame(i);
-  updateTimelineFromIndex();
-}
-
-
-/* Click anywhere on bar to jump */
-barEl.addEventListener('click', (e) => {
-  if (e.target === handleEl) return; // handle drag handles itself
-  const rect = barEl.getBoundingClientRect();
-  const pct = (e.clientX - rect.left) / rect.width;
-  const i = Math.max(0, Math.min(n - 1, Math.round(pct * (n - 1))));
-  stopPlaying();
-  playBtnEl.textContent = '▶';
-  moveToFrame(i);
-});
-
-/* Drag to scrub */
-let dragging = false;
-function scrub(clientX) {
-  const rect = barEl.getBoundingClientRect();
-  const pct = (clientX - rect.left) / rect.width;
-  let i = Math.max(0, Math.min(n - 1, Math.round(pct * (n - 1))));
-  // clamp within range when scrubbing current handle
-  i = Math.max(rangeStart, Math.min(rangeEnd, i));
-  moveToFrame(i);
-}
-handleEl.addEventListener('mousedown', (e) => {
-  dragging = true;
-  stopPlaying();
-  playBtnEl.textContent = '▶';
-  e.preventDefault();
-});
-window.addEventListener('mousemove', (e) => { if (dragging) scrub(e.clientX); });
-window.addEventListener('mouseup',   () => { dragging = false; });
-
-/* Dragging for range start/end handles */
-let draggingRange = null; // 'start' | 'end' | null
-function scrubRange(which, clientX) {
-  const rect = barEl.getBoundingClientRect();
-  const pct = (clientX - rect.left) / rect.width;
-  const idx = Math.max(0, Math.min(n - 1, Math.round(pct * (n - 1))));
-  if (which === 'start') {
-    rangeStart = Math.min(idx, rangeEnd); // cannot exceed end
-    if (currentIndex < rangeStart) moveToFrame(rangeStart);
-  } else if (which === 'end') {
-    rangeEnd = Math.max(idx, rangeStart); // cannot go before start
-    if (currentIndex > rangeEnd) moveToFrame(rangeEnd);
-  }
-  updateTimelineFromIndex();
-}
-[ ['mousedown', 'mousemove', 'mouseup'], ['touchstart','touchmove','touchend'] ].forEach(([down, move, up]) => {
-  const moveHandler = (e) => {
-    if (!draggingRange) return;
-    const clientX = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;
-    scrubRange(draggingRange, clientX);
-    if (e.preventDefault) e.preventDefault();
-  };
-  const upHandler = () => { draggingRange = null; };
-
-  rangeStartEl.addEventListener(down, (e) => { draggingRange = 'start'; stopPlaying(); if (e.preventDefault) e.preventDefault(); });
-  rangeEndEl.addEventListener(down,   (e) => { draggingRange = 'end';   stopPlaying(); if (e.preventDefault) e.preventDefault(); });
-  window.addEventListener(move, moveHandler, { passive: false });
-  window.addEventListener(up,   upHandler);
-});
-handleEl.addEventListener('touchstart', (e) => {
-  dragging = true;
-  stopPlaying();
-  playBtnEl.textContent = '▶';
-  e.preventDefault();
-}, { passive: false });
-window.addEventListener('touchmove', (e) => {
-  if (!dragging) return;
-  const touch = e.touches[0];
-  if (touch) scrub(touch.clientX);
-}, { passive: false });
-window.addEventListener('touchend', () => { dragging = false; });
-
-/* Play/Pause button */
-playBtnEl.onclick = () => {
-  if (isPlaying) {
-    stopPlaying();
-    playBtnEl.textContent = '▶';
-  } else {
-    startPlaying();
-    playBtnEl.textContent = '❚❚';
+/**
+ * UTILITIES
+ */
+const Utils = {
+  buildCogUrl: (filename) => {
+    const encoded = encodeURIComponent(CONFIG.baseUrl + filename);
+    return `${CONFIG.rdntEndpoint}?url=${encoded}${CONFIG.rdntQuery}`;
+  },
+  toast: (msg, duration=3000) => {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('visible');
+    setTimeout(() => el.classList.remove('visible'), duration);
   }
 };
 
-/* ------------------------------
-   Bootstrap: preload layers, add layer control, fit bounds, show first frame
---------------------------------*/
-(async function init() {
-  toast('Loading raster layers…');
-  const loaded = await preloadAllCogs();
+/**
+ * MAP CONTROLLER
+ * Handles loading COGs, caching TileJSON, and updating layers.
+ */
+class MapController {
+  constructor(mapId) {
+    this.map = L.map(mapId, {
+      zoomControl: false,
+      fadeAnimation: false, // Disable Leaflet fade, we do it manually
+      worldCopyJump: false
+    }).setView(CONFIG.initialView.center, CONFIG.initialView.zoom);
 
-  // Build overlay control entries (keep order consistent with filenames)
-  const overlays = {};
-  for (const f of cogFiles) {
-    const label = 'COG ' + cogLabelsByFile[f];
-    if (cogLayers[label]) overlays[label] = cogLayers[label];
-  }
-  L.control.layers({ 'OpenStreetMap': osm }, overlays, { collapsed: false }).addTo(map);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      maxZoom: 20, attribution: '&copy; OpenStreetMap &copy; CARTO'
+    }).addTo(this.map);
 
-  // Fit to union of all raster bounds if available; else default to DFW-ish
-  if (unionBounds) {
-    map.fitBounds(unionBounds);
-  } else {
-    const dfwBounds = L.latLngBounds([32.3, -98.0], [33.3, -96.5]);
-    map.fitBounds(dfwBounds);
+    this.cache = {}; // Stores TileJSON and Layer objects
+    this.activeLayers = []; // Currently visible Leaflet layers
   }
 
-  // Add first frame and sync UI
-  moveToFrame(currentIndex);
-  updateTimelineFromIndex();
+  async getLayerData(filename) {
+    if (this.cache[filename]) return this.cache[filename];
+    
+    try {
+      const url = Utils.buildCogUrl(filename);
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const tileJson = await res.json();
+      
+      const tileUrl = tileJson.tiles[0];
+      const layer = L.tileLayer(tileUrl, {
+        minZoom: tileJson.minzoom || 0,
+        maxZoom: 22,
+        tileSize: 256,
+        opacity: 0, // Start hidden
+        zIndex: 10
+      });
 
-  toast('Layers ready. Use timeline or layer control.');
-})();
+      this.cache[filename] = { layer, bounds: tileJson.bounds };
+      return this.cache[filename];
+    } catch (e) {
+      console.error(`Failed to load ${filename}`, e);
+      Utils.toast(`Error loading ${filename}`);
+      return null;
+    }
+  }
+
+  // Preload specific frame index
+  async preloadFrame(index) {
+    if (!CONFIG.frames[index]) return;
+    const promises = CONFIG.frames[index].files.map(f => this.getLayerData(f));
+    await Promise.all(promises);
+  }
+
+  // The core logic: Ensure target frame is visible, hide others
+  async showFrame(index) {
+    const frame = CONFIG.frames[index];
+    document.getElementById('loader').classList.add('active');
+
+    // 1. Load data for this frame if needed
+    const layerDataList = await Promise.all(frame.files.map(f => this.getLayerData(f)));
+    
+    // 2. Add new layers to map (hidden initially via opacity:0 in definition)
+    const newLayers = [];
+    layerDataList.forEach(d => {
+      if(d && d.layer) {
+        if(!this.map.hasLayer(d.layer)) d.layer.addTo(this.map);
+        newLayers.push(d.layer);
+      }
+    });
+
+    // 3. Transition: Fade IN new, Fade OUT old
+    // We use a small timeout to allow the browser to render the DOM element before CSS transition
+    requestAnimationFrame(() => {
+      newLayers.forEach(l => l.setOpacity(1));
+      
+      // Find layers to remove (all currently active layers that are NOT in the new set)
+      const toRemove = this.activeLayers.filter(l => !newLayers.includes(l));
+      toRemove.forEach(l => {
+        l.setOpacity(0);
+        // Remove from DOM after transition to save memory
+        setTimeout(() => { if(this.map.hasLayer(l)) this.map.removeLayer(l); }, 600); 
+      });
+
+      this.activeLayers = newLayers;
+      document.getElementById('loader').classList.remove('active');
+    });
+
+    // 4. Background load next frame for speed
+    const nextIdx = (index + 1) % CONFIG.frames.length;
+    this.preloadFrame(nextIdx);
+  }
+}
+
+/**
+ * TIMELINE CONTROLLER
+ * Handles UI, User Input, and Animation Loop
+ */
+class TimelineApp {
+  constructor(mapController) {
+    this.mapCtrl = mapController;
+    this.frames = CONFIG.frames;
+    
+    // Calculate Percentages
+    const dates = this.frames.map(f => new Date(f.date).getTime());
+    const min = Math.min(...dates);
+    const max = Math.max(...dates);
+    this.frames.forEach((f, i) => {
+      const d = dates[i];
+      f.pct = max === min ? 0 : ((d - min) / (max - min)) * 100;
+    });
+
+    this.currentIndex = 0;
+    this.isPlaying = false;
+    this.timer = null;
+
+    this.ui = {
+      playBtn: document.getElementById('playBtn'),
+      progress: document.getElementById('progress'),
+      handle: document.getElementById('handle'),
+      track: document.getElementById('trackWrapper'),
+      lblYear: document.getElementById('lblYear'),
+      lblRange: document.getElementById('lblRange'),
+      ticks: document.getElementById('ticksContainer')
+    };
+
+    this.initUI();
+    this.update(0);
+    
+    // Global Keys
+    window.addEventListener('keydown', (e) => {
+      if(e.key === ' '){ this.togglePlay(); e.preventDefault(); }
+      if(e.key === 'ArrowRight') this.step(1);
+      if(e.key === 'ArrowLeft') this.step(-1);
+    });
+  }
+
+  initUI() {
+    // Generate Ticks
+    this.frames.forEach((f, i) => {
+      const tick = document.createElement('div');
+      tick.className = 'tick';
+      tick.style.left = `${f.pct}%`;
+      this.ui.ticks.appendChild(tick);
+    });
+
+    // Play Button
+    this.ui.playBtn.onclick = () => this.togglePlay();
+
+    // Drag / Click Logic
+    const handleInput = (clientX) => {
+      const rect = this.ui.track.getBoundingClientRect();
+      const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
+      const pct = (x / rect.width) * 100;
+      
+      // Find closest frame
+      let closestIdx = 0;
+      let minDiff = Infinity;
+      this.frames.forEach((f, i) => {
+        const diff = Math.abs(f.pct - pct);
+        if(diff < minDiff) { minDiff = diff; closestIdx = i; }
+      });
+      
+      if(closestIdx !== this.currentIndex) {
+        this.update(closestIdx);
+      }
+    };
+
+    let isDragging = false;
+    const startDrag = (e) => { isDragging = true; this.stop(); handleInput(e.clientX || e.touches[0].clientX); };
+    const moveDrag = (e) => { if(isDragging) handleInput(e.clientX || e.touches[0].clientX); };
+    const endDrag = () => { isDragging = false; };
+
+    this.ui.track.addEventListener('mousedown', startDrag);
+    this.ui.track.addEventListener('touchstart', startDrag, {passive:false});
+    window.addEventListener('mousemove', moveDrag);
+    window.addEventListener('touchmove', moveDrag, {passive:false});
+    window.addEventListener('mouseup', endDrag);
+    window.addEventListener('touchend', endDrag);
+  }
+
+  update(index) {
+    this.currentIndex = index;
+    const f = this.frames[index];
+    
+    // Update UI
+    this.ui.handle.style.left = `${f.pct}%`;
+    this.ui.progress.style.width = `${f.pct}%`;
+    this.ui.lblYear.textContent = f.id;
+    this.ui.lblRange.textContent = `${this.frames[0].id} — ${this.frames[this.frames.length-1].id}`;
+
+    // Update Map
+    this.mapCtrl.showFrame(index);
+  }
+
+  step(dir) {
+    this.stop();
+    let next = this.currentIndex + dir;
+    if(next >= this.frames.length) next = 0;
+    if(next < 0) next = this.frames.length - 1;
+    this.update(next);
+  }
+
+  togglePlay() {
+    if(this.isPlaying) this.stop();
+    else this.play();
+  }
+
+  play() {
+    this.isPlaying = true;
+    this.ui.playBtn.textContent = '❚❚';
+    this.timer = setInterval(() => {
+      const next = (this.currentIndex + 1) % this.frames.length;
+      this.update(next);
+    }, CONFIG.animationSpeed);
+  }
+
+  stop() {
+    this.isPlaying = false;
+    this.ui.playBtn.textContent = '▶';
+    clearInterval(this.timer);
+  }
+}
+
+// --- Bootstrap ---
+document.addEventListener('DOMContentLoaded', () => {
+  const mapCtrl = new MapController('map');
+  const app = new TimelineApp(mapCtrl);
+});
+
 </script>
 </body>
 </html>
