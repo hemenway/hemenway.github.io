@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>DFW Sectionals</title>
+  <title>DFW Sectionals — Timeline + RDNT tiler</title>
 
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
@@ -158,7 +158,7 @@
    RDNT tiler base + options
 --------------------------------*/
 const RDNT_ENDPOINT = 'https://tiles.rdnt.io/tiles';
-const RDNT_QUERY = '&rgb=1,2,3&linearStretch=true'; // add &nodata=0 if needed
+const RDNT_QUERY = '&rgb=1,2,3&linearStretch=true&nodata=0'; // add &nodata=0 if needed
 
 /* ------------------------------
    Helper: encoded aeromap.io URL
@@ -224,12 +224,20 @@ async function loadCogAsLayer(filename) {
   const tileUrl = tj.tiles && tj.tiles[0];
   if (!tileUrl) throw new Error('TileJSON missing tiles template');
 
+  // Compute per-layer bounds from TileJSON
+  const b = tj.bounds; // [w,s,e,n]
+  let layerBounds = null;
+  if (Array.isArray(b) && b.length === 4) {
+    layerBounds = L.latLngBounds([[b[1], b[0]], [b[3], b[2]]]);
+  }
+
   const layer = L.tileLayer(tileUrl, {
     minZoom: tj.minzoom ?? 0,
     maxZoom: Math.min(22, tj.maxzoom ?? 22),
     crossOrigin: true,
     tileSize: 256,
     noWrap: true,
+    bounds: layerBounds || undefined,
     errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP8z8BQDwAD3gG7miRCNQAAAABJRU5ErkJggg=='
   });
 
@@ -238,10 +246,8 @@ async function loadCogAsLayer(filename) {
   cogTileJSON[label] = tj;
 
   // Expand overall bounds
-  const b = tj.bounds; // [w,s,e,n]
-  if (Array.isArray(b) && b.length === 4) {
-    const llb = L.latLngBounds([ [b[1], b[0]], [b[3], b[2]] ]);
-    unionBounds = unionBounds ? unionBounds.extend(llb) : llb;
+  if (layerBounds) {
+    unionBounds = unionBounds ? unionBounds.extend(layerBounds) : layerBounds;
   }
 
   return { label, layer };
