@@ -2,50 +2,153 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>DFW Sectionals — Timeline</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     :root {
       --primary: #1e90ff;
-      --bg-glass: rgba(20, 25, 30, 0.9);
+      --bg-glass: rgba(20, 25, 30, 0.85); /* Slightly more transparent for mobile */
       --text-light: #fff;
       --timeline-h: 6px;
+      --card-radius: 16px;
     }
+    
     html, body { height: 100%; margin: 0; background: #111; font-family: system-ui, -apple-system, sans-serif; overflow: hidden; }
     #map { height: 100%; width: 100%; z-index: 1; background: #111; }
 
+    /* Map Performance Tweaks */
     .leaflet-fade-anim .leaflet-tile,
-    .leaflet-zoom-anim .leaflet-zoom-animated { transition: none !important; }
+    .leaflet-zoom-anim .leaflet-zoom-animated { will-change: transform; } 
 
-    .ui-layer { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%); width: min(1000px, 92vw); z-index: 1000; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
-    .controls-card { background: var(--bg-glass); backdrop-filter: blur(10px); padding: 16px 24px; border-radius: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.6); display: flex; align-items: center; gap: 20px; pointer-events: auto; border: 1px solid rgba(255,255,255,0.1); }
+    /* UI Container */
+    .ui-layer { 
+      position: absolute; 
+      bottom: 30px; 
+      left: 50%; 
+      transform: translateX(-50%); 
+      width: min(1000px, 94vw); 
+      z-index: 1000; 
+      pointer-events: none;
+    }
 
-    .btn-play { width: 44px; height: 44px; border-radius: 50%; background: var(--primary); border: none; color: white; font-size: 18px; cursor: pointer; display: grid; place-items: center; transition: transform 0.1s, background 0.2s; flex-shrink: 0; padding-left: 4px; }
+    /* Main Control Card */
+    .controls-card { 
+      background: var(--bg-glass); 
+      backdrop-filter: blur(12px); 
+      -webkit-backdrop-filter: blur(12px);
+      padding: 16px 24px; 
+      border-radius: var(--card-radius); 
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6); 
+      border: 1px solid rgba(255,255,255,0.1); 
+      
+      display: flex; 
+      align-items: center; 
+      gap: 20px; 
+      pointer-events: auto; 
+    }
+
+    /* Play Button */
+    .btn-play { 
+      width: 44px; height: 44px; 
+      border-radius: 50%; 
+      background: var(--primary); 
+      border: none; color: white; 
+      font-size: 18px; cursor: pointer; 
+      display: grid; place-items: center; 
+      transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94); 
+      flex-shrink: 0; padding-left: 4px; 
+      /* Larger touch target without changing visuals */
+      box-shadow: 0 4px 12px rgba(30, 144, 255, 0.3);
+    }
     .btn-play.paused { padding-left: 0; }
-    .btn-play:hover { background: #4aa3ff; }
-    .btn-play:active { transform: scale(0.95); }
+    .btn-play:active { transform: scale(0.92); }
 
-    .timeline-track-wrapper { flex: 1; position: relative; height: 32px; display: flex; align-items: center; cursor: pointer; }
+    /* Timeline Track */
+    .timeline-track-wrapper { 
+      flex: 1; 
+      position: relative; 
+      height: 40px; /* Taller hit area for touch */
+      display: flex; 
+      align-items: center; 
+      cursor: pointer; 
+      touch-action: none; /* Prevents scrolling while dragging */
+    }
     .timeline-track { width: 100%; height: var(--timeline-h); background: rgba(255,255,255,0.2); border-radius: 4px; position: relative; }
     .timeline-progress { position: absolute; height: 100%; background: var(--primary); border-radius: 4px; width: 0%; pointer-events: none; }
 
-    .tick { position: absolute; width: 2px; height: 12px; background: rgba(255,255,255,0.4); top: 50%; transform: translate(-50%, -50%); pointer-events: none; }
-    .tick.active { background: #fff; height: 16px; opacity: 1; }
+    .tick { position: absolute; width: 2px; height: 12px; background: rgba(255,255,255,0.4); top: 50%; transform: translate(-50%, -50%); pointer-events: none; transition: height 0.2s, background 0.2s; }
+    .tick.active { background: #fff; height: 16px; opacity: 1; box-shadow: 0 0 8px rgba(255,255,255,0.5); }
 
-    .handle { position: absolute; width: 18px; height: 18px; background: #fff; border-radius: 50%; top: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 0 4px rgba(30,144,255,0.4); cursor: grab; transition: transform 0.1s; }
-    .handle:active { cursor: grabbing; transform: translate(-50%, -50%) scale(1.1); }
+    /* Slider Handle */
+    .handle { 
+      position: absolute; 
+      width: 20px; height: 20px; 
+      background: #fff; border-radius: 50%; 
+      top: 50%; transform: translate(-50%, -50%); 
+      box-shadow: 0 0 0 4px rgba(30,144,255,0.4); 
+      cursor: grab; transition: transform 0.1s; 
+      z-index: 2;
+    }
+    /* Invisible larger hit area for the handle */
+    .handle::after {
+        content: ''; position: absolute;
+        top: -15px; left: -15px; right: -15px; bottom: -15px;
+    }
+    .handle:active { cursor: grabbing; transform: translate(-50%, -50%) scale(1.15); }
 
-    .info-panel { display: flex; flex-direction: column; align-items: flex-end; min-width: 110px; color: var(--text-light); }
+    /* Info Panel */
+    .info-panel { 
+      display: flex; flex-direction: column; align-items: flex-end; 
+      min-width: 100px; color: var(--text-light); 
+      text-align: right;
+    }
     .label-year { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; letter-spacing: -0.5px; }
-    .label-sub { font-size: 11px; opacity: 0.6; margin-top: 5px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;}
+    .label-sub { font-size: 11px; opacity: 0.6; margin-top: 4px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;}
 
-    .loader { width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.1); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; opacity: 0; transition: opacity 0.2s; }
+    /* Loader */
+    .loader { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.1); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; opacity: 0; transition: opacity 0.2s; margin-right: 10px;}
     .loader.active { opacity: 1; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    .toast { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: #c0392b; color: white; padding: 8px 16px; border-radius: 6px; font-size: 14px; z-index: 2000; opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+    /* Toast */
+    .toast { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: #e74c3c; color: white; padding: 10px 20px; border-radius: 20px; font-weight: 600; font-size: 13px; z-index: 2000; opacity: 0; transition: opacity 0.3s; pointer-events: none; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
     .toast.visible { opacity: 1; }
+
+    /* --- MOBILE OPTIMIZATIONS --- */
+    @media (max-width: 640px) {
+      .ui-layer { bottom: 20px; width: 92vw; }
+      
+      .controls-card {
+        flex-wrap: wrap; /* Allow items to wrap to next line */
+        padding: 16px;   /* Reduce padding slightly */
+        gap: 12px;       /* Tighter gap */
+        justify-content: space-between;
+      }
+
+      /* Row 1: Play Button & Date Info */
+      .btn-play { order: 1; }
+      
+      .info-panel { 
+        order: 2; 
+        align-items: center; /* Center align text for balance */
+        flex-direction: row; /* Put label/sub on same line or stack differently if preferred */
+        gap: 10px;
+      }
+      .label-sub { margin-top: 0; display: none; /* Hide 'Timeline' text on mobile to save space */ }
+
+      /* Row 2: The Timeline (Full Width) */
+      .timeline-track-wrapper {
+        order: 3;
+        flex-basis: 100%; /* Force full width */
+        width: 100%;
+        margin-top: 10px; /* Add spacing from top row */
+        height: 44px; /* Even bigger touch target */
+      }
+      
+      /* Hide loader on mobile to save space, or move it */
+      .loader { position: absolute; top: 16px; left: 70px; } 
+    }
   </style>
 
   <script async src="https://plausible.io/js/pa-oIee4DcCO6MlCK-80VGrZ.js"></script>
@@ -61,7 +164,9 @@
 
 <div class="ui-layer">
   <div class="controls-card">
-    <button class="btn-play" id="playBtn" title="Play/Pause (Spacebar)">▶</button>
+    <button class="btn-play" id="playBtn" title="Play/Pause">▶</button>
+    <div class="loader" id="loader"></div>
+    
     <div class="timeline-track-wrapper" id="trackWrapper">
       <div class="timeline-track">
         <div class="timeline-progress" id="progress"></div>
@@ -69,7 +174,7 @@
         <div class="handle" id="handle"></div>
       </div>
     </div>
-    <div class="loader" id="loader" title="Downloading tiles..."></div>
+
     <div class="info-panel">
       <div class="label-year" id="lblYear">...</div>
       <div class="label-sub" id="lblRange">Timeline</div>
@@ -84,14 +189,11 @@ const CONFIG = {
   rdntEndpoint: 'https://tiles.rdnt.io/tiles',
   rdntQuery: '&rgb=1,2,3',
   baseUrl: 'https://aeromap.io/',
-
-  // All files shown in your screenshot (chronological)
   frames: [
     { id: '1933 Feb', date: '1933-02-01', files: ['193302_geo_COG.tif'] },
     { id: '1933 Jul', date: '1933-07-01', files: ['193307_geo_COG.tif'] },
     { id: '1933 Sep', date: '1933-09-01', files: ['193309_geo_COG.tif'] },
     { id: '1934 Aug', date: '1934-08-01', files: ['193408_geo_COG.tif'] },
-
     { id: '2011 Sep', date: '2011-09-01', files: ['201109N_geo_COG.tif', '201109S_geo_COG.tif'] },
     { id: '2012 Sep', date: '2012-09-01', files: ['201209N_geo_COG.tif', '201209S_geo_COG.tif'] },
     { id: '2013 Sep', date: '2013-09-01', files: ['201309N_geo_COG.tif', '201309S_geo_COG.tif'] },
@@ -100,9 +202,8 @@ const CONFIG = {
     { id: '2016 Mar', date: '2016-03-01', files: ['201603_geo_COG.tif'] },
     { id: '2016 Sep', date: '2016-09-01', files: ['201609_geo_COG.tif'] }
   ],
-
-  animationSpeed: 1000, // ms per frame
-  initialView: { center: [32.8, -97.0], zoom: 9 }
+  animationSpeed: 1000,
+  initialView: { center: [32.7767, -96.7970], zoom: 10 } // Centered closer to Dallas
 };
 
 /** UTILITIES **/
@@ -124,17 +225,17 @@ class MapController {
   constructor(mapId) {
     this.map = L.map(mapId, {
       zoomControl: false,
-      fadeAnimation: false,
+      fadeAnimation: true,
       zoomAnimation: true,
-      markerZoomAnimation: true,
-      worldCopyJump: false,
       attributionControl: false 
     }).setView(CONFIG.initialView.center, CONFIG.initialView.zoom);
 
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
       maxZoom: 20, opacity: 1, zIndex: 1
     }).addTo(this.map);
-    L.control.attribution({position: 'topright'}).addTo(this.map);
+    
+    // Add zoom control top-right for better mobile UX
+    L.control.zoom({ position: 'topright' }).addTo(this.map);
 
     this.cache = {};
     this.activeLayers = [];
@@ -155,29 +256,34 @@ class MapController {
         tileSize: 256,
         opacity: 0,
         zIndex: 10,
-        keepBuffer: 4
+        keepBuffer: 2 // Reduced buffer for mobile memory optimization
       });
 
       this.cache[filename] = { layer, bounds: tileJson.bounds };
       return this.cache[filename];
     } catch (e) {
       console.error(`Failed to load ${filename}`, e);
-      Utils.toast(`Failed to load ${filename}`);
+      Utils.toast(`Err: ${filename}`);
       return null;
     }
   }
 
   async preloadFrame(index) {
     if (!CONFIG.frames[index]) return;
-    await Promise.all(CONFIG.frames[index].files.map(f => this.getLayerData(f)));
+    // Debounce preload slightly to prioritize current render
+    setTimeout(() => {
+        CONFIG.frames[index].files.forEach(f => this.getLayerData(f));
+    }, 200);
   }
 
   waitForLayer(layer) {
     return new Promise(resolve => {
-      if (!layer._loading) return resolve();
+      // If already loaded, resolve immediately
+      if (layer._tiles && Object.keys(layer._tiles).length > 0) return resolve();
+      
       const onload = () => { layer.off('load', onload); resolve(); };
       layer.on('load', onload);
-      setTimeout(() => { layer.off('load', onload); resolve(); }, 3000);
+      setTimeout(() => { layer.off('load', onload); resolve(); }, 2000); // Faster timeout
     });
   }
 
@@ -185,7 +291,7 @@ class MapController {
     const frame = CONFIG.frames[index];
     const loader = document.getElementById('loader');
 
-    const spinnerTimeout = setTimeout(() => loader.classList.add('active'), 50);
+    const spinnerTimeout = setTimeout(() => loader.classList.add('active'), 100);
 
     const layerDataList = await Promise.all(frame.files.map(f => this.getLayerData(f)));
 
@@ -200,7 +306,11 @@ class MapController {
       }
     });
 
-    await Promise.all(newLayers.map(l => this.waitForLayer(l)));
+    // On mobile, we might skip waiting for full load to keep UI snappy
+    const isMobile = window.innerWidth < 640;
+    if (!isMobile) {
+        await Promise.all(newLayers.map(l => this.waitForLayer(l)));
+    }
 
     requestAnimationFrame(() => {
       newLayers.forEach(l => l.setOpacity(1));
@@ -278,10 +388,15 @@ class TimelineApp {
     };
 
     let isDragging = false;
-    const startDrag = (e) => { isDragging = true; this.stop(); handleInput((e.touches?.[0]?.clientX) ?? e.clientX); };
+    const startDrag = (e) => { 
+        isDragging = true; 
+        this.stop(); 
+        handleInput((e.touches?.[0]?.clientX) ?? e.clientX); 
+    };
     const moveDrag  = (e) => { if (isDragging) handleInput((e.touches?.[0]?.clientX) ?? e.clientX); };
     const endDrag   = () => { isDragging = false; };
 
+    // Added passive: false to allow touch manipulation
     this.ui.track.addEventListener('mousedown', startDrag);
     this.ui.track.addEventListener('touchstart', startDrag, {passive:false});
     window.addEventListener('mousemove', moveDrag);
@@ -332,7 +447,6 @@ class TimelineApp {
   }
 }
 
-// Init
 document.addEventListener('DOMContentLoaded', () => {
   const mapCtrl = new MapController('map');
   new TimelineApp(mapCtrl);
