@@ -188,12 +188,16 @@
 const CONFIG = {
   rdntEndpoint: 'https://tiles.rdnt.io/tiles',
   rdntQuery: '&rgb=1,2,3',
-  baseUrl: 'https://aeromap.io/',
+  // Updated base URL to include the "dfw/" folder
+  baseUrl: 'https://aeromap.io/dfw/',
+  // Updated frames list based on the uploaded image content
   frames: [
     { id: '1933 Feb', date: '1933-02-01', files: ['193302_geo_COG.tif'] },
     { id: '1933 Jul', date: '1933-07-01', files: ['193307_geo_COG.tif'] },
     { id: '1933 Sep', date: '1933-09-01', files: ['193309_geo_COG.tif'] },
     { id: '1934 Aug', date: '1934-08-01', files: ['193408_geo_COG.tif'] },
+    { id: '1940 Sep', date: '1940-09-01', files: ['194009_DFW_COG.tif'] },
+    { id: '1950 Feb', date: '1950-02-01', files: ['195002_DFW_COG.tif'] },
     { id: '2011 Sep', date: '2011-09-01', files: ['201109N_geo_COG.tif', '201109S_geo_COG.tif'] },
     { id: '2012 Sep', date: '2012-09-01', files: ['201209N_geo_COG.tif', '201209S_geo_COG.tif'] },
     { id: '2013 Sep', date: '2013-09-01', files: ['201309N_geo_COG.tif', '201309S_geo_COG.tif'] },
@@ -203,12 +207,13 @@ const CONFIG = {
     { id: '2016 Sep', date: '2016-09-01', files: ['201609_geo_COG.tif'] }
   ],
   animationSpeed: 1000,
-  initialView: { center: [32.7767, -96.7970], zoom: 10 } // Centered closer to Dallas
+  initialView: { center: [32.7767, -96.7970], zoom: 10 } 
 };
 
 /** UTILITIES **/
 const Utils = {
   buildCogUrl: (filename) => {
+    // baseUrl now includes 'dfw/', so we just append the filename
     const encoded = encodeURIComponent(CONFIG.baseUrl + filename);
     return `${CONFIG.rdntEndpoint}?url=${encoded}${CONFIG.rdntQuery}`;
   },
