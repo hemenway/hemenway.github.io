@@ -103,7 +103,6 @@
       min-width: 100px; color: var(--text-light); 
       text-align: right;
     }
-    .label-year { font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; letter-spacing: -0.5px; }
     .label-sub { font-size: 11px; opacity: 0.6; margin-top: 4px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;}
 
     /* Loader */
@@ -114,6 +113,36 @@
     /* Toast */
     .toast { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: #e74c3c; color: white; padding: 10px 20px; border-radius: 20px; font-weight: 600; font-size: 13px; z-index: 2000; opacity: 0; transition: opacity 0.3s; pointer-events: none; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
     .toast.visible { opacity: 1; }
+
+    /* Dropdown styling */
+    .time-select {
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      background: rgba(255,255,255,0.08);
+      color: var(--text-light);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 10px;
+      padding: 8px 36px 8px 12px;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      line-height: 1;
+      outline: none;
+      cursor: pointer;
+      position: relative;
+    }
+    /* simple chevron */
+    .time-select {
+      background-image:
+        linear-gradient(45deg, transparent 50%, rgba(255,255,255,0.7) 50%),
+        linear-gradient(135deg, rgba(255,255,255,0.7) 50%, transparent 50%);
+      background-position:
+        calc(100% - 18px) calc(50% - 3px),
+        calc(100% - 12px) calc(50% - 3px);
+      background-size: 6px 6px, 6px 6px;
+      background-repeat: no-repeat;
+    }
 
     /* --- MOBILE OPTIMIZATIONS --- */
     @media (max-width: 640px) {
@@ -148,6 +177,8 @@
       
       /* Hide loader on mobile to save space, or move it */
       .loader { position: absolute; top: 16px; left: 70px; } 
+
+      .time-select { font-size: 15px; padding: 8px 34px 8px 10px; }
     }
   </style>
 
@@ -176,7 +207,7 @@
     </div>
 
     <div class="info-panel">
-      <div class="label-year" id="lblYear">...</div>
+      <select id="timeSelect" class="time-select" aria-label="Select timeframe"></select>
       <div class="label-sub" id="lblRange">Timeline</div>
     </div>
   </div>
@@ -351,7 +382,7 @@ class TimelineApp {
       progress: document.getElementById('progress'),
       handle: document.getElementById('handle'),
       track: document.getElementById('trackWrapper'),
-      lblYear: document.getElementById('lblYear'),
+      timeSelect: document.getElementById('timeSelect'),
       lblRange: document.getElementById('lblRange'),
       ticks: document.getElementById('ticksContainer')
     };
@@ -369,6 +400,23 @@ class TimelineApp {
   initUI() {
     this.ui.lblRange.textContent = `${this.frames[0].id} — ${this.frames[this.frames.length-1].id}`;
 
+    // populate dropdown
+    this.ui.timeSelect.innerHTML = '';
+    this.frames.forEach((f, i) => {
+      const opt = document.createElement('option');
+      opt.value = String(i);
+      opt.textContent = f.id; // e.g., "1933 Feb"
+      this.ui.timeSelect.appendChild(opt);
+    });
+    this.ui.timeSelect.addEventListener('change', () => {
+      const idx = parseInt(this.ui.timeSelect.value, 10);
+      if (!Number.isNaN(idx) && idx >= 0 && idx < this.frames.length) {
+        this.stop(); // pause if it was playing
+        this.update(idx);
+      }
+    });
+
+    // ticks
     this.frames.forEach((f) => {
       const tick = document.createElement('div');
       tick.className = 'tick';
@@ -376,8 +424,10 @@ class TimelineApp {
       this.ui.ticks.appendChild(tick);
     });
 
+    // play
     this.ui.playBtn.onclick = () => this.togglePlay();
 
+    // drag on the track/handle
     const handleInput = (clientX) => {
       const rect = this.ui.track.getBoundingClientRect();
       const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
@@ -414,9 +464,14 @@ class TimelineApp {
     this.currentIndex = index;
     const f = this.frames[index];
 
+    // sync dropdown
+    if (this.ui.timeSelect && this.ui.timeSelect.value !== String(index)) {
+      this.ui.timeSelect.value = String(index);
+    }
+
+    // move handle/progress & highlight tick
     this.ui.handle.style.left = `${f.pct}%`;
     this.ui.progress.style.width = `${f.pct}%`;
-    this.ui.lblYear.textContent = f.id;
 
     Array.from(this.ui.ticks.children).forEach((tick, i) => {
       if (i === index) tick.classList.add('active'); else tick.classList.remove('active');
