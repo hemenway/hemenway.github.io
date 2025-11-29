@@ -4,6 +4,14 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>DFW Sectionals — Timeline</title>
+  
+  <!-- Performance: Preconnect to external domains -->
+  <link rel="preconnect" href="https://tiles.rdnt.io" crossorigin />
+  <link rel="preconnect" href="https://aeromap.io" crossorigin />
+  <link rel="preconnect" href="https://unpkg.com" crossorigin />
+  <link rel="dns-prefetch" href="https://tiles.rdnt.io" />
+  <link rel="dns-prefetch" href="https://aeromap.io" />
+  
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     :root {
@@ -19,7 +27,11 @@
 
     /* Map Performance Tweaks */
     .leaflet-fade-anim .leaflet-tile,
-    .leaflet-zoom-anim .leaflet-zoom-animated { will-change: transform; } 
+    .leaflet-zoom-anim .leaflet-zoom-animated { will-change: transform; }
+    
+    /* Performance: GPU acceleration for animated elements */
+    .timeline-progress, .handle, .tick { will-change: transform, opacity; }
+    .controls-card { will-change: transform; } 
 
     /* UI Container */
     .ui-layer { 
@@ -179,6 +191,77 @@
       .loader { position: absolute; top: 16px; left: 70px; } 
 
       .time-select { font-size: 15px; padding: 8px 34px 8px 10px; }
+      
+      /* Hide speed control on small mobile */
+      .speed-btn { display: none; }
+    }
+    
+    /* Speed control button */
+    .speed-btn {
+      background: rgba(255,255,255,0.08);
+      color: var(--text-light);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+      min-width: 42px;
+      text-align: center;
+    }
+    .speed-btn:hover { background: rgba(255,255,255,0.15); }
+    .speed-btn:active { transform: scale(0.95); }
+    
+    /* Fullscreen button */
+    .fullscreen-btn {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      z-index: 1000;
+      width: 40px;
+      height: 40px;
+      background: var(--bg-glass);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      color: var(--text-light);
+      font-size: 18px;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      transition: background 0.2s, transform 0.2s;
+    }
+    .fullscreen-btn:hover { background: rgba(255,255,255,0.15); }
+    .fullscreen-btn:active { transform: scale(0.92); }
+    
+    /* Keyboard shortcuts hint */
+    .kbd-hint {
+      position: absolute;
+      bottom: 120px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg-glass);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      padding: 8px 16px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.1);
+      font-size: 12px;
+      color: var(--text-light);
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      z-index: 999;
+    }
+    .kbd-hint.visible { opacity: 0.9; }
+    .kbd-hint kbd {
+      background: rgba(255,255,255,0.15);
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin: 0 4px;
+      font-family: inherit;
     }
   </style>
 
@@ -192,12 +275,14 @@
 
 <div id="map"></div>
 <div class="toast" id="toast"></div>
+<button type="button" class="fullscreen-btn" id="fullscreenBtn" title="Toggle Fullscreen (F)">⛶</button>
+<div class="kbd-hint" id="kbdHint"><kbd>Space</kbd> Play/Pause <kbd>←</kbd><kbd>→</kbd> Navigate <kbd>F</kbd> Fullscreen</div>
 
 <div class="ui-layer">
   <div class="controls-card">
-    <button class="btn-play" id="playBtn" title="Play/Pause">▶</button>
+    <button type="button" class="btn-play" id="playBtn" title="Play/Pause (Space)">▶</button>
     <div class="loader" id="loader"></div>
-    
+
     <div class="timeline-track-wrapper" id="trackWrapper">
       <div class="timeline-track">
         <div class="timeline-progress" id="progress"></div>
@@ -207,6 +292,7 @@
     </div>
 
     <div class="info-panel">
+      <button type="button" class="speed-btn" id="speedBtn" title="Playback Speed">1x</button>
       <select id="timeSelect" class="time-select" aria-label="Select timeframe"></select>
       <div class="label-sub" id="lblRange">Timeline</div>
     </div>
@@ -238,7 +324,9 @@ const CONFIG = {
     { id: '2016 Sep', date: '2016-09-01', files: ['201609_geo_COG.tif'] }
   ],
   animationSpeed: 1000,
-  initialView: { center: [32.7767, -96.7970], zoom: 10 } 
+  speedOptions: [0.5, 1, 2, 3], // Playback speed multipliers
+  initialView: { center: [32.7767, -96.7970], zoom: 10 },
+  preloadCount: 2 // Number of frames to preload ahead
 };
 
 /** UTILITIES **/
@@ -312,6 +400,14 @@ class MapController {
     }, 200);
   }
 
+  // Preload multiple frames ahead for smoother playback
+  preloadAhead(currentIndex, count = CONFIG.preloadCount) {
+    for (let i = 1; i <= count; i++) {
+      const nextIdx = (currentIndex + i) % CONFIG.frames.length;
+      this.preloadFrame(nextIdx);
+    }
+  }
+
   waitForLayer(layer) {
     return new Promise(resolve => {
       // If already loaded, resolve immediately
@@ -357,8 +453,8 @@ class MapController {
       loader.classList.remove('active');
     });
 
-    const nextIdx = (index + 1) % CONFIG.frames.length;
-    this.preloadFrame(nextIdx);
+    // Preload multiple frames ahead for smoother playback
+    this.preloadAhead(index);
   }
 }
 
@@ -376,6 +472,8 @@ class TimelineApp {
     this.currentIndex = 0;
     this.isPlaying = false;
     this.timer = null;
+    this.speedIndex = 1; // Default to 1x speed (index 1 in speedOptions)
+    this.kbdHintShown = false;
 
     this.ui = {
       playBtn: document.getElementById('playBtn'),
@@ -384,21 +482,67 @@ class TimelineApp {
       track: document.getElementById('trackWrapper'),
       timeSelect: document.getElementById('timeSelect'),
       lblRange: document.getElementById('lblRange'),
-      ticks: document.getElementById('ticksContainer')
+      ticks: document.getElementById('ticksContainer'),
+      speedBtn: document.getElementById('speedBtn'),
+      fullscreenBtn: document.getElementById('fullscreenBtn'),
+      kbdHint: document.getElementById('kbdHint')
     };
 
     this.initUI();
     this.update(0);
+    this.showKbdHint(); // Show keyboard hint on first load
 
     window.addEventListener('keydown', (e) => {
       if (e.key === ' ') { this.togglePlay(); e.preventDefault(); }
       if (e.key === 'ArrowRight') this.step(1);
       if (e.key === 'ArrowLeft') this.step(-1);
+      if (e.key === 'f' || e.key === 'F') this.toggleFullscreen();
+      if (e.key === '+' || e.key === '=') this.cycleSpeed();
     });
+  }
+
+  showKbdHint() {
+    if (this.kbdHintShown) return;
+    this.kbdHintShown = true;
+    setTimeout(() => {
+      this.ui.kbdHint.classList.add('visible');
+      setTimeout(() => this.ui.kbdHint.classList.remove('visible'), 4000);
+    }, 1500);
+  }
+
+  toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  }
+
+  cycleSpeed() {
+    this.speedIndex = (this.speedIndex + 1) % CONFIG.speedOptions.length;
+    const speed = CONFIG.speedOptions[this.speedIndex];
+    this.ui.speedBtn.textContent = speed + 'x';
+    
+    // Restart timer if playing to apply new speed
+    if (this.isPlaying) {
+      this.stop();
+      this.play();
+    }
+  }
+
+  getAnimationInterval() {
+    const speed = CONFIG.speedOptions[this.speedIndex];
+    return CONFIG.animationSpeed / speed;
   }
 
   initUI() {
     this.ui.lblRange.textContent = `${this.frames[0].id} — ${this.frames[this.frames.length-1].id}`;
+
+    // Speed button
+    this.ui.speedBtn.onclick = () => this.cycleSpeed();
+
+    // Fullscreen button
+    this.ui.fullscreenBtn.onclick = () => this.toggleFullscreen();
 
     // populate dropdown
     this.ui.timeSelect.innerHTML = '';
@@ -496,7 +640,7 @@ class TimelineApp {
     this.isPlaying = true;
     this.ui.playBtn.textContent = '❚❚';
     this.ui.playBtn.classList.add('paused');
-    this.timer = setInterval(() => this.update((this.currentIndex + 1) % this.frames.length), CONFIG.animationSpeed);
+    this.timer = setInterval(() => this.update((this.currentIndex + 1) % this.frames.length), this.getAnimationInterval());
   }
 
   stop() {
