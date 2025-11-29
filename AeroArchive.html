@@ -472,7 +472,8 @@ class TimelineApp {
     this.currentIndex = 0;
     this.isPlaying = false;
     this.timer = null;
-    this.speedIndex = 1; // Default to 1x speed (index 1 in speedOptions)
+    // Find index of 1x speed, fallback to 0 if not found
+    this.speedIndex = Math.max(0, CONFIG.speedOptions.indexOf(1));
     this.kbdHintShown = false;
 
     this.ui = {
@@ -512,9 +513,13 @@ class TimelineApp {
 
   toggleFullscreen() {
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
+      document.documentElement.requestFullscreen().catch(err => {
+        console.warn('Fullscreen request failed:', err.message);
+      });
     } else {
-      document.exitFullscreen().catch(() => {});
+      document.exitFullscreen().catch(err => {
+        console.warn('Exit fullscreen failed:', err.message);
+      });
     }
   }
 
