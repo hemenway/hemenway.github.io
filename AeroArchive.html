@@ -214,47 +214,100 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+
 <script>
 /** CONFIGURATION **/
 const CONFIG = {
   rdntEndpoint: 'https://tiles.rdnt.io/tiles',
   rdntQuery: '&rgb=1,2,3',
-  // Updated base URL to include the "dfw/" folder
   baseUrl: 'https://aeromap.io/dfw/',
-  // Updated frames list based on the uploaded image content
-  frames: [
-    { id: '1933 Feb', date: '1933-02-01', files: ['193302_geo_COG.tif'] },
-    { id: '1933 Jul', date: '1933-07-01', files: ['193307_geo_COG.tif'] },
-    { id: '1933 Sep', date: '1933-09-01', files: ['193309_geo_COG.tif'] },
-    { id: '1934 Aug', date: '1934-08-01', files: ['193408_geo_COG.tif'] },
-    { id: '1940 Sep', date: '1940-09-01', files: ['194009_DFW_COG.tif'] },
-    { id: '1950 Feb', date: '1950-02-01', files: ['195002_DFW_COG.tif'] },
-    { id: '2011 Sep', date: '2011-09-01', files: ['201109N_geo_COG.tif', '201109S_geo_COG.tif'] },
-    { id: '2012 Sep', date: '2012-09-01', files: ['201209N_geo_COG.tif', '201209S_geo_COG.tif'] },
-    { id: '2013 Sep', date: '2013-09-01', files: ['201309N_geo_COG.tif', '201309S_geo_COG.tif'] },
-    { id: '2014 Mar', date: '2014-03-01', files: ['201403_geo_COG.tif'] },
-    { id: '2015 Mar', date: '2015-03-01', files: ['201503_geo_COG.tif'] },
-    { id: '2016 Mar', date: '2016-03-01', files: ['201603_geo_COG.tif'] },
-    { id: '2016 Sep', date: '2016-09-01', files: ['201609_geo_COG.tif'] }
-  ],
+  csvUrl: 'https://hemenway.github.io/collection.csv', // Dynamic Source
   animationSpeed: 1000,
-  initialView: { center: [32.7767, -96.7970], zoom: 10 } 
+  initialView: { center: [32.7767, -96.7970], zoom: 10 },
+  frames: [] // Will be populated dynamically
 };
 
 /** UTILITIES **/
 const Utils = {
   buildCogUrl: (filename) => {
-    // baseUrl now includes 'dfw/', so we just append the filename
     const encoded = encodeURIComponent(CONFIG.baseUrl + filename);
     return `${CONFIG.rdntEndpoint}?url=${encoded}${CONFIG.rdntQuery}`;
   },
   toast: (msg, duration=3000) => {
     const el = document.getElementById('toast');
-    el.textContent = msg;
-    el.classList.add('visible');
-    setTimeout(() => el.classList.remove('visible'), duration);
+    if(el) {
+      el.textContent = msg;
+      el.classList.add('visible');
+      setTimeout(() => el.classList.remove('visible'), duration);
+    }
+  },
+  formatDateId: (dateStr) => {
+    // Convert YYYY-MM-DD to YYYY MMM (e.g., 2011 Sep)
+    try {
+      const [y, m, d] = dateStr.split('-').map(Number);
+      // Note: Date() month is 0-indexed
+      const date = new Date(y, m - 1, d);
+      return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+    } catch(e) {
+      return dateStr;
+    }
   }
 };
+
+/** DATA LOADER **/
+async function loadData() {
+  return new Promise((resolve, reject) => {
+    Papa.parse(CONFIG.csvUrl, {
+      download: true,
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        try {
+          // 1. Group by date
+          const framesMap = {};
+          
+          results.data.forEach(row => {
+            // Skip rows without filenames or invalid dates
+            if (!row.filename || !row.date_iso || row.date_iso === '?') return;
+
+            const date = row.date_iso;
+            if (!framesMap[date]) {
+              framesMap[date] = { date: date, files: [] };
+            }
+            
+            // Handle multiple files in one cell (e.g. "file1.tif, file2.tif")
+            const files = row.filename.split(',').map(s => s.trim()).filter(s => s.length > 0);
+            framesMap[date].files.push(...files);
+          });
+
+          // 2. Convert to array and sort
+          const framesList = Object.values(framesMap).sort((a, b) => {
+            return new Date(a.date) - new Date(b.date);
+          });
+
+          // 3. Add ID formatting
+          CONFIG.frames = framesList.map(f => ({
+            id: Utils.formatDateId(f.date),
+            date: f.date,
+            files: f.files
+          }));
+
+          resolve();
+        } catch (e) {
+          console.error("Data processing error", e);
+          Utils.toast("Error processing CSV data");
+          reject(e);
+        }
+      },
+      error: (err) => {
+        console.error("CSV Load Error", err);
+        Utils.toast("Failed to load timeline data");
+        reject(err);
+      }
+    });
+  });
+}
 
 /** MAP CONTROLLER **/
 class MapController {
@@ -270,7 +323,6 @@ class MapController {
       maxZoom: 20, opacity: 1, zIndex: 1
     }).addTo(this.map);
     
-    // Add zoom control top-right for better mobile UX
     L.control.zoom({ position: 'topright' }).addTo(this.map);
 
     this.cache = {};
@@ -292,21 +344,20 @@ class MapController {
         tileSize: 256,
         opacity: 0,
         zIndex: 10,
-        keepBuffer: 2 // Reduced buffer for mobile memory optimization
+        keepBuffer: 2
       });
 
       this.cache[filename] = { layer, bounds: tileJson.bounds };
       return this.cache[filename];
     } catch (e) {
       console.error(`Failed to load ${filename}`, e);
-      Utils.toast(`Err: ${filename}`);
+      // Suppress individual toast errors to avoid spamming on load
       return null;
     }
   }
 
   async preloadFrame(index) {
     if (!CONFIG.frames[index]) return;
-    // Debounce preload slightly to prioritize current render
     setTimeout(() => {
         CONFIG.frames[index].files.forEach(f => this.getLayerData(f));
     }, 200);
@@ -314,12 +365,10 @@ class MapController {
 
   waitForLayer(layer) {
     return new Promise(resolve => {
-      // If already loaded, resolve immediately
       if (layer._tiles && Object.keys(layer._tiles).length > 0) return resolve();
-      
       const onload = () => { layer.off('load', onload); resolve(); };
       layer.on('load', onload);
-      setTimeout(() => { layer.off('load', onload); resolve(); }, 2000); // Faster timeout
+      setTimeout(() => { layer.off('load', onload); resolve(); }, 2000); 
     });
   }
 
@@ -342,7 +391,6 @@ class MapController {
       }
     });
 
-    // On mobile, we might skip waiting for full load to keep UI snappy
     const isMobile = window.innerWidth < 640;
     if (!isMobile) {
         await Promise.all(newLayers.map(l => this.waitForLayer(l)));
@@ -405,13 +453,13 @@ class TimelineApp {
     this.frames.forEach((f, i) => {
       const opt = document.createElement('option');
       opt.value = String(i);
-      opt.textContent = f.id; // e.g., "1933 Feb"
+      opt.textContent = f.id; 
       this.ui.timeSelect.appendChild(opt);
     });
     this.ui.timeSelect.addEventListener('change', () => {
       const idx = parseInt(this.ui.timeSelect.value, 10);
       if (!Number.isNaN(idx) && idx >= 0 && idx < this.frames.length) {
-        this.stop(); // pause if it was playing
+        this.stop(); 
         this.update(idx);
       }
     });
@@ -451,7 +499,6 @@ class TimelineApp {
     const moveDrag  = (e) => { if (isDragging) handleInput((e.touches?.[0]?.clientX) ?? e.clientX); };
     const endDrag   = () => { isDragging = false; };
 
-    // Added passive: false to allow touch manipulation
     this.ui.track.addEventListener('mousedown', startDrag);
     this.ui.track.addEventListener('touchstart', startDrag, {passive:false});
     window.addEventListener('mousemove', moveDrag);
@@ -464,12 +511,10 @@ class TimelineApp {
     this.currentIndex = index;
     const f = this.frames[index];
 
-    // sync dropdown
     if (this.ui.timeSelect && this.ui.timeSelect.value !== String(index)) {
       this.ui.timeSelect.value = String(index);
     }
 
-    // move handle/progress & highlight tick
     this.ui.handle.style.left = `${f.pct}%`;
     this.ui.progress.style.width = `${f.pct}%`;
 
@@ -507,10 +552,20 @@ class TimelineApp {
   }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
+// Initialize Application
+async function initApp() {
+  await loadData(); // Fetch and parse CSV first
+  
+  if (CONFIG.frames.length === 0) {
+    Utils.toast("No valid frames found in CSV");
+    return;
+  }
+  
   const mapCtrl = new MapController('map');
   new TimelineApp(mapCtrl);
-});
+}
+
+document.addEventListener('DOMContentLoaded', initApp);
 </script>
 </body>
 </html>
