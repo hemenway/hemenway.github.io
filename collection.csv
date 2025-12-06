@@ -2,8 +2,8 @@ region,date_iso,edition_label,status,filename,source_url,source_text,notes
 DFW,?,1,Missing,,,,Ford Maps David Rumsey collection
 DFW,?,2,Missing,,,https://www.loc.gov/item/2009582531/,
 DFW,?,3,Missing,,,https://findingaids.loc.gov/db/search/xq/searchMfer02.xq?_id=loc.gmd.eadgmd.gm020018&_faSection=overview&_faSubsection=did&_dmdid=,
-DFW,?,4,Missing,,,,
-DFW,?,5,Missing,,,,
+DFW,?,4,Missing,,,https://historicalcharts.noaa.gov,
+DFW,?,5,Missing,,,https://www.loc.gov/item/2009582531/,
 DFW,1932-10-01,6,Acquired,193210_geo_cog.tif,LoC,https://www.loc.gov/resource/g3701pm.gct00089/?st=list&c=150,
 DFW,1933-02-01,7,Acquired,193302_geo_COG.tif,LoC,,
 DFW,1933-07-01,8,Acquired,193307_geo_COG.tif,LoC,,
@@ -237,4 +237,5 @@ Twin_Cities,,,,,,,
 Washington,,,,,,,
 Western_Aleutian_Islands,,,,,,,
 Whitehorse,,,,,,,
+
 Wichita,,,,,,,
