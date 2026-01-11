@@ -128,7 +128,7 @@ DFW,1998-01-16,59th,Missing,,,,
 DFW,1998-07-16,60th,Missing,,,,
 DFW,1999-01-16,61st,Missing,,,,
 DFW,1999-07-16,62nd,Missing,,,,
-DFW,2000-01-16,63rd,Missing,,,,
+DFW,2000-01-16,63rd,Acquired,"combined_cog.tif",,,
 DFW,2000-07-16,64th,Missing,,,,
 DFW,2001-01-16,65th,Missing,,,,
 DFW,2001-07-16,66th,Missing,,,,
@@ -238,5 +238,6 @@ Washington,,,,,,,
 Western_Aleutian_Islands,,,,,,,
 Whitehorse,,,,,,,
 Wichita,,,,,,,
+
 
 
