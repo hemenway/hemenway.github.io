@@ -1,0 +1,164 @@
+/* ryanhemenway.com — one stylesheet for every page. No scripts.
+
+   The page is drawn like a VFR sectional. Every colour below is one
+   chartvec measured off the printed Dallas–Ft Worth sectional:
+     paper      elevation tint C (2,000–3,000 ft)   #fcf4de
+     strip      elevation tints A–D, low to high    #d8e8ce #c8dcbe #fcf4de #f8e4ae
+     links      teal, towered airports and water    #0a66a3
+     labels     maroon, airspace and airport data   #6e0e36 / #8c3861
+     selection  urban-area yellow                   #f8f850
+     ink        chart black                         #080808
+
+   Headings use Helvetica Neue Condensed Bold where the device has it
+   (every Mac, iPhone and iPad), the face sectionals letter airport names
+   in; nothing is downloaded for it. Body text is B612, the open-source
+   family Airbus commissioned for cockpit displays (SIL OFL, in /fonts). */
+
+@font-face {
+  font-family: "B612";
+  src: url("/fonts/b612-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: "B612";
+  src: url("/fonts/b612-latin-700-normal.woff2") format("woff2");
+  font-weight: 700;
+  font-display: swap;
+}
+@font-face {
+  font-family: "B612 Mono";
+  src: url("/fonts/b612-mono-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+
+:root {
+  --bg: #fcf4de;
+  --text: #080808;
+  --muted: #5c5a52;
+  --rule: #d9cfae;
+  --link: #0a66a3;
+  --label: #6e0e36;
+  --label-2: #8c3861;
+  --tint-a: #d8e8ce;
+  --tint-b: #c8dcbe;
+  --tint-c: #fcf4de;
+  --tint-d: #f8e4ae;
+  --urban: #f8f850;
+  --todo-bg: #f8f850;
+  --cond: "HelveticaNeue-CondensedBold", "Helvetica Neue Condensed Bold", "B612", sans-serif;
+}
+/* Night: the same inks lifted to read on a dark cockpit display. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #12161a;
+    --text: #ece6d4;
+    --muted: #a39d8c;
+    --rule: #2e3338;
+    --link: #6fb3e6;
+    --label: #e392b8;
+    --label-2: #c97aa0;
+    --tint-a: #3d4a36;
+    --tint-b: #34442f;
+    --tint-c: #4d4733;
+    --tint-d: #5c4f2a;
+    --urban: #6b6a1c;
+    --todo-bg: #5a5900;
+  }
+}
+
+* { box-sizing: border-box; }
+
+/* The four elevation tints, lowest to highest, across the top edge. */
+html {
+  background: var(--bg);
+  border-top: 6px solid;
+  border-image: linear-gradient(90deg,
+    var(--tint-a) 0 25%, var(--tint-b) 25% 50%,
+    var(--tint-c) 50% 75%, var(--tint-d) 75% 100%) 1;
+}
+
+body {
+  margin: 0 auto;
+  max-width: 40rem;
+  padding: 2rem 1rem 3rem;
+  background: var(--bg);
+  color: var(--text);
+  font: 17px/1.6 "B612", system-ui, sans-serif;
+}
+
+::selection { background: var(--urban); color: #080808; }
+
+/* Dates, figures and section labels read like an airport data block. */
+.meta, h2, footer, .warn { font-family: "B612 Mono", ui-monospace, monospace; }
+
+a { color: var(--link); text-underline-offset: 0.15em; }
+a:hover { color: var(--label-2); }
+
+h1, h2, h3 { line-height: 1.15; }
+
+/* The name is lettered like a towered airport on the chart. */
+h1 {
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 2.2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--link);
+  margin: 0 0 0.35rem;
+}
+h1 a { color: inherit; text-decoration: none; }
+
+/* Section labels in maroon, over a fading band like the Class E vignette. */
+h2 {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--label);
+  margin: 2.6rem 0 0.9rem;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid var(--label-2);
+  box-shadow: 0 7px 7px -7px color-mix(in srgb, var(--label-2) 55%, transparent);
+}
+
+h3 {
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 1.2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  margin: 1.6rem 0 0.25rem;
+}
+h3 .meta { text-transform: none; letter-spacing: 0; font-weight: 400; margin-left: 0.35rem; color: var(--label-2); }
+
+nav { margin: 0 0 2rem; font-weight: 700; }
+nav a { margin-right: 1.1rem; text-decoration: none; }
+nav a:hover { text-decoration: underline; }
+
+.lede { font-size: 1.12rem; margin: 0.5rem 0 0; }
+.muted { color: var(--muted); }
+.meta { font-size: 0.85rem; font-variant-numeric: tabular-nums; color: var(--muted); }
+
+.shot {
+  display: block; width: 100%; height: auto;
+  border: 1px solid var(--label-2);
+  margin: 0.75rem 0 0.35rem;
+}
+
+.links a { margin-right: 1rem; font-weight: 700; }
+
+.warn { font-size: 0.85rem; color: var(--muted); }
+
+footer {
+  margin-top: 3.5rem;
+  padding-top: 1rem;
+  border-top: 1px dashed var(--link);   /* Class D: blue, dashed */
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+footer a { margin-right: 1rem; }
+
+/* Things Ryan still has to fill in. Search the repo for class="todo"
+   before publishing; there should be none left. */
+.todo { background: var(--todo-bg); padding: 0 0.2em; }

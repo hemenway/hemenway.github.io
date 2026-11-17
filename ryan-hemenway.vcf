@@ -1,0 +1,13 @@
+BEGIN:VCARD
+VERSION:3.0
+N:Hemenway;Ryan;;;
+FN:Ryan Hemenway
+ORG:iFly EFB
+TITLE:Tech Supervisor
+EMAIL;TYPE=INTERNET,PREF:00-wheel-ankles@icloud.com
+URL:https://ryanhemenway.com/
+URL:https://archive.aero/
+X-SOCIALPROFILE;TYPE=github:https://github.com/hemenway
+ADR;TYPE=HOME:;;;;TX;;USA
+NOTE:Tech supervisor at iFly EFB. Builds archive.aero\, every U.S. sectional since 1930. Met at the EFB forum in Dallas\, November 2026.
+END:VCARD

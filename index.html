@@ -1,126 +1,62 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ryan Hemenway</title>
-  <style>
-    :root {
-      --bg-color: #ffffff;
-      --text-color: #222222;
-      --link-color: #3a86ff;
-      --muted-color: #777;
-    }
-
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg-color: #121212;
-        --text-color: #f0f0f0;
-        --link-color: #90cdf4;
-        --muted-color: #aaa;
-      }
-    }
-
-    body {
-      margin: 40px auto;
-      max-width: 650px;
-      line-height: 1.6;
-      font-size: 18px;
-      background: var(--bg-color);
-      color: var(--text-color);
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      padding: 0 10px;
-      transition: background-color 0.3s, color 0.3s;
-    }
-
-    h1,
-    h2,
-    h3 {
-      line-height: 1.2;
-      margin-top: 1.5em;
-    }
-
-    header,
-    footer {
-      text-align: center;
-      margin-bottom: 2em;
-    }
-
-    nav {
-      margin-bottom: 2em;
-    }
-
-    nav a {
-      display: inline-block;
-      margin-right: 1rem;
-      font-weight: bold;
-      color: var(--link-color);
-      text-decoration: none;
-    }
-
-    nav a:hover {
-      text-decoration: underline;
-    }
-
-    ul {
-      padding-left: 1.2rem;
-    }
-
-    a {
-      color: var(--link-color);
-    }
-
-    footer {
-      margin-top: 4em;
-      font-size: 0.9em;
-      color: var(--muted-color);
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ryan Hemenway</title>
+<meta name="description" content="Ryan Hemenway is the tech supervisor at iFly EFB and builds archive.aero, every U.S. VFR sectional since 1930 on one timeline.">
+<link rel="canonical" href="https://ryanhemenway.com/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Ryan Hemenway">
+<meta property="og:description" content="Tech supervisor at iFly EFB, and builder of archive.aero: every U.S. sectional since 1930 on one timeline.">
+<meta property="og:url" content="https://ryanhemenway.com/">
+<meta property="og:image" content="https://ryanhemenway.com/img/og.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="stylesheet" href="/style.css">
 </head>
-
 <body>
-  <header>
-    <h1>Ryan Hemenway</h1>
-  </header>
-  <main>
-    <nav>
-      <a href="#resume">Resume</a>
-      <a href="#projects">Projects</a>
-      <a href="/contact.html">Contact</a>
-      <a href="/now.html">Now</a>
-      <a href="http://map.aeromap.io">AeroMap
-        <a href="/aeroarchivestatus.html">Status</a>
-        <a href="http://buymeacoffee.com/ryanhemenway">☕Buy Me A Coffee</a>
-    </nav>
-    <section>
-      <h2 id="about">About Me</h2>
-      <p>I’m a pharmacy technician, pilot, and open-source hardware enthusiast based in Texas. I love aviation, travel,
-        and helping others through community projects.</p>
+<header class="h-card">
+  <h1 class="p-name">Ryan Hemenway</h1>
+  <nav>
+    <a href="#work">Work</a>
+    <a href="/contact.html">Contact</a>
+  </nav>
+  <p class="lede p-note">I'm the tech supervisor at <span class="p-org">iFly EFB</span>. On my own time I build aviation software in Texas: a 96-year archive of FAA charts, and the scanners, simulators and pipelines behind it.</p>
+</header>
 
-      <h2 id="projects">Projects</h2>
-      <ul>
-        <li><strong>Airline Points Optimization</strong>: Built a program to collect and use donated airline points to
-          fly missions for patients in need.</li>
-        <li><strong>Underwater Pool Scanning</strong>: Developing a 3D scanning solution using photogrammetry and
-          Gaussian splatting for pool volume measurement.</li>
-        <li><strong>Open-Source Avionics</strong>: Experimenting with low-cost flight instruments and navigation tools
-          for experimental aircraft.</li>
-      </ul>
+<main>
+  <h2 id="work">Work</h2>
 
-      <h2 id="contact">Contact</h2>
-      <p>Want to collaborate or just say hi? <a href="mailto:00-wheel-ankles@icloud.com">Email me</a>.</p>
-    </section>
-  </main>
-  <footer>
-    <p>© 2025 Ryan Hemenway</p>
-  </footer>
+  <h3>iFly EFB <span class="meta">now</span></h3>
+  <p><span class="p-job-title">Tech supervisor.</span> I work across the whole product, from software development to answering customers directly.</p>
 
-  <!-- GoatCounter -->
-  <script data-goatcounter="https://hemenway.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
-  <noscript>
-    <img src="https://hemenway.goatcounter.com/count?p=/noscript" alt="" />
-  </noscript>
+  <h3><a href="https://archive.aero">archive.aero</a> <span class="meta">2025–now</span></h3>
+  <p>A free, open-source viewer for every U.S. VFR sectional since 1930: 7,668 chart editions across 3,741 edition dates as of September 2026. Each edition is georeferenced and mosaicked into one seamless nationwide layer, tiled to PMTiles and served from Cloudflare R2 with no backend. Every conversion has to pass a 12-point alignment check within 0.3 px before it's published. New FAA cycles go up as they're released; older eras arrive as I find, buy or am given the paper charts.
+  <a href="https://archive.aero/?date=1945-06-01&amp;lat=32.85&amp;lng=-96.85&amp;zoom=9">Dallas–Fort Worth in 1945</a> is a good place to start.</p>
+
+  <h3><a href="https://github.com/hemenway/gdl90-esp32">gdl90-esp32</a> <span class="meta">2026</span></h3>
+  <p>A bench simulator on an ESP32 that broadcasts GDL 90 traffic and weather over Wi-Fi, with offline browser controls over USB, so EFB apps can be tested without an aircraft or an ADS-B receiver.</p>
+
+  <h3>M40 Scan</h3>
+  <p>A macOS app for the Colortrac M40 wide-format scanner. Colortrac ships no Mac driver, so I reconstructed the USB protocol from their Windows driver package. It runs batch front-and-back scans from the archive's donation list.</p>
+
+  <h3>Map tiling tools</h3>
+  <p><a href="https://github.com/hemenway/geotiff2pmtiles">geotiff2pmtiles</a>, which converts the archive.aero mosaics to tiles, and <a href="https://github.com/hemenway/pmtiles-rs">pmtiles-rs</a>, a Rust implementation of PMTiles.</p>
+
+  <h2 id="earlier">Earlier</h2>
+  <ul>
+    <li><strong>Airline points for patient travel.</strong> A program that collected donated airline points and used them to fly missions for patients in need.</li>
+    <li><strong>Underwater pool scanning.</strong> Photogrammetry and Gaussian splatting to measure pool volume.</li>
+  </ul>
+
+  <h2 id="contact">Contact</h2>
+  <p><a class="u-email" href="mailto:00-wheel-ankles@icloud.com">Email</a> is best. Code is on <a rel="me" href="https://github.com/hemenway">GitHub</a>.</p>
+</main>
+
+<footer>
+  Updated 16 November 2026 ·
+  <a href="https://buymeacoffee.com/ryanhemenway">Support archive.aero</a>
+</footer>
+<script data-goatcounter="https://hemenway.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
 </body>
-
 </html>
